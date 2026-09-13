@@ -40,4 +40,10 @@ describe('Action Whitelist Registry Tests', () => {
     expect(ActionRegistry.isRegistered('arbitrary_code_exec')).toBe(false);
     expect(ActionRegistry.get('unknown_action')).toBeUndefined();
   });
+
+  it('gives every action a help-ready description', () => {
+    for (const action of ActionRegistry.getAll()) {
+      expect(action.description?.trim().length, action.type).toBeGreaterThan(0);
+    }
+  });
 });

@@ -1,6 +1,7 @@
-import { Interaction, ChatInputCommandInteraction, ButtonInteraction, ModalSubmitInteraction, MessageFlags, Guild, GuildMember } from 'discord.js';
-import { GuildRepository, ConfirmationRepository, ExecutionRepository, AuditRepository, ScheduledActionRepository, ConversationRepository, PendingQuestionRepository } from '../database/repositories.js';
+import { Interaction, ChatInputCommandInteraction, ButtonInteraction, ModalSubmitInteraction, StringSelectMenuInteraction, MessageFlags, Guild, GuildMember } from 'discord.js';
+import { GuildRepository, ConfirmationRepository, ExecutionRepository, AuditRepository, ScheduledActionRepository, ConversationRepository, PendingQuestionRepository, PendingChoiceRepository, ChoiceOption } from '../database/repositories.js';
 import { ActionDispatcher } from '../actions/dispatcher.js';
+import { ActionRegistry } from '../actions/registry.js';
 import { DiscordUIComponents } from './ui.js';
 import { parseSettingValue, settingField } from './setting-options.js';
 import { createLLMProvider } from '../ai/factory.js';
@@ -36,6 +37,8 @@ export class InteractionHandler {
         await this.handleButtonInteraction(interaction);
       } else if (interaction.isModalSubmit()) {
         await this.handleModalSubmit(interaction);
+      } else if (interaction.isStringSelectMenu()) {
+        await this.handleSelectMenu(interaction);
       }
     } catch (err: any) {
       // 10062 = interaction token expired (>3s without ack, or user deleted message).
@@ -199,11 +202,14 @@ export class InteractionHandler {
       });
     } else if (interaction.commandName === 'prompt-help') {
       stage('showing help');
+      const catalog = ActionRegistry.getAll()
+        .map((a) => `• **${a.type}** — ${a.description}`)
+        .join('\n');
       await interaction.editReply({
         embeds: [
           DiscordUIComponents.createSuccessEmbed(
             'Natural Language Bot Help',
-            'You can describe operations using `/prompt`!\n\n**Supported Actions:**\n• Create Channel: `Create channel welcome`\n• Delete Channel: `Delete #old-chat`\n• Create Role: `Create role Moderators`\n• Assign Role: `Give @Alex role Support`\n• Timeout Member: `Timeout @BadActor for 300 seconds`\n• Ban Member: `Ban @Spammer`'
+            `Describe what you want in \`/prompt\` - plain words work, @-mentions work best for people and roles.\n\n**Actions I can do:**\n${catalog}\n\n**Tips:**\n• No channel named? I use the channel you're in.\n• Unsure? I'll ask a follow-up question instead of guessing.\n• Dangerous actions ask for confirmation first.`
           ).embeds[0]
         ],
       });
@@ -379,70 +385,15 @@ export class InteractionHandler {
     }
 
     if (parsed.status === IntentStatus.DIRECT_ACTION && parsed.action) {
-      stage(`dispatching action=${parsed.action}`);
-      const execution = await ExecutionRepository.createExecution({
-        guildId,
-        userId,
-        prompt,
-        status: 'RUNNING',
-        parsedIntent: parsed,
-      });
-
-      const ctx = {
-        guildId,
-        userId,
-        executionId: execution.id,
+      await this.executeSingleAction(interaction, {
         guild,
         actorMember,
+        guildId,
+        userId,
         settings,
-      };
-
-      const actionType = parsed.action;
-      const params = parsed.parameters || {};
-
-      if (params.channelName) {
-        const res = await EntityResolver.resolveChannel(guild, params.channelName);
-        if (res.resolved) params.channelId = res.resolved.id;
-      }
-      if (params.roleName) {
-        const res = await EntityResolver.resolveRole(guild, params.roleName);
-        if (res.resolved) params.roleId = res.resolved.id;
-      }
-      // "purge 20" means HERE: channel-taking actions default to the current channel.
-      if (!params.channelId && CHANNEL_ACTIONS.has(actionType) && interaction.channelId) {
-        params.channelId = interaction.channelId;
-      }
-
-      const dispatchRes = await ActionDispatcher.dispatch(actionType, params, ctx);
-      stage(
-        dispatchRes.requiresConfirmation
-          ? 'dispatch needs confirmation - replying'
-          : dispatchRes.success
-            ? `dispatch ok - replying`
-            : `dispatch failed (${dispatchRes.error?.slice(0, 80) ?? 'unknown'}) - replying`
-      );
-
-      if (dispatchRes.requiresConfirmation && dispatchRes.confirmationDetails) {
-        const ui = DiscordUIComponents.createConfirmationEmbed(
-          dispatchRes.confirmationDetails.actionType,
-          dispatchRes.confirmationDetails.riskLevel,
-          JSON.stringify(params, null, 2),
-          dispatchRes.confirmationDetails.actionNonce
-        );
-        await interaction.editReply(ui);
-        await this.remember(convoId, prompt, `I asked for confirmation before doing ${actionType}.`);
-        return;
-      }
-
-      if (dispatchRes.success) {
-        const text = `Successfully performed **${actionType}**.`;
-        await interaction.editReply(DiscordUIComponents.createSuccessEmbed('Action Executed', text));
-        await this.remember(convoId, prompt, `I did ${actionType} successfully.`);
-      } else {
-        const errText = dispatchRes.error || 'Execution failed.';
-        await interaction.editReply(DiscordUIComponents.createErrorEmbed('Action Failed', errText));
-        await this.remember(convoId, prompt, `That failed: ${errText.slice(0, 300)}`);
-      }
+        stage,
+        ctxBase,
+      }, prompt, convoId, parsed.action, parsed.parameters || {});
     } else {
       // Catch-all: the model can also return action_plan, confirmation_required,
       // capability_unavailable, permission_analysis_required, or a direct_action
@@ -461,8 +412,221 @@ export class InteractionHandler {
     }
   }
 
-  /** Free-chat reply with history context; provider mismatch falls back gracefully. */
-  private async chatReply(
+  /**
+   * Executes one action end-to-end: entity resolution (with disambiguation
+   * menus on ambiguity), current-channel defaulting, dispatch, and reply.
+   * Shared by /prompt, clarification modals, and disambiguation selects.
+   */
+  private async executeSingleAction(
+    interaction: ChatInputCommandInteraction | ModalSubmitInteraction | StringSelectMenuInteraction,
+    env: {
+      guild: Guild;
+      actorMember: GuildMember;
+      guildId: string;
+      userId: string;
+      settings: any;
+      stage: (name: string) => void;
+      ctxBase: { command: string; guildId: string; userId: string };
+    },
+    prompt: string,
+    convoId: string | null,
+    actionType: string,
+    params: Record<string, any>
+  ) {
+    const { guild, actorMember, guildId, userId, settings, stage } = env;
+
+    if (params.channelName && !params.channelId) {
+      const res = await EntityResolver.resolveChannel(guild, params.channelName);
+      if (res.resolved) {
+        params.channelId = res.resolved.id;
+      } else if (res.ambiguous && res.matches?.length) {
+        await this.askDisambiguation(interaction, env, prompt, convoId, actionType, params, 'channelId',
+          res.matches.slice(0, 10).map((c) => ({ id: c.id, name: `#${c.name}` })), 'channel');
+        return;
+      } else {
+        // Named but unmatched: never silently fall through to another channel.
+        const msg = `I couldn't find a channel named "${params.channelName}". Check the name and try again.`;
+        stage('channel not found - replying');
+        await interaction.editReply(DiscordUIComponents.createErrorEmbed('Channel Not Found', msg));
+        await this.remember(convoId, prompt, msg);
+        return;
+      }
+    }
+
+    if (params.roleName && !params.roleId) {
+      const res = await EntityResolver.resolveRole(guild, params.roleName);
+      if (res.resolved) {
+        params.roleId = res.resolved.id;
+      } else if (res.ambiguous && res.matches?.length) {
+        await this.askDisambiguation(interaction, env, prompt, convoId, actionType, params, 'roleId',
+          res.matches.slice(0, 10).map((r) => ({ id: r.id, name: `@${r.name}` })), 'role');
+        return;
+      } else {
+        const msg = `I couldn't find a role named "${params.roleName}". Check the name and try again.`;
+        stage('role not found - replying');
+        await interaction.editReply(DiscordUIComponents.createErrorEmbed('Role Not Found', msg));
+        await this.remember(convoId, prompt, msg);
+        return;
+      }
+    }
+
+    // "purge 20" means HERE: channel-taking actions default to the current channel.
+    if (!params.channelId && CHANNEL_ACTIONS.has(actionType) && interaction.channelId) {
+      params.channelId = interaction.channelId;
+    }
+
+    stage(`dispatching action=${actionType}`);
+    const execution = await ExecutionRepository.createExecution({
+      guildId,
+      userId,
+      prompt,
+      status: 'RUNNING',
+      parsedIntent: { action: actionType, parameters: params },
+    });
+
+    const dispatchRes = await ActionDispatcher.dispatch(actionType, params, {
+      guildId,
+      userId,
+      executionId: execution.id,
+      guild,
+      actorMember,
+      settings,
+    });
+    stage(
+      dispatchRes.requiresConfirmation
+        ? 'dispatch needs confirmation - replying'
+        : dispatchRes.success
+          ? `dispatch ok - replying`
+          : `dispatch failed (${dispatchRes.error?.slice(0, 80) ?? 'unknown'}) - replying`
+    );
+
+    if (dispatchRes.requiresConfirmation && dispatchRes.confirmationDetails) {
+      const ui = DiscordUIComponents.createConfirmationEmbed(
+        dispatchRes.confirmationDetails.actionType,
+        dispatchRes.confirmationDetails.riskLevel,
+        JSON.stringify(params, null, 2),
+        dispatchRes.confirmationDetails.actionNonce
+      );
+      await interaction.editReply(ui);
+      await this.remember(convoId, prompt, `I asked for confirmation before doing ${actionType}.`);
+      return;
+    }
+
+    if (dispatchRes.success) {
+      const detail = dispatchRes.result
+        ? `\n\`${JSON.stringify(dispatchRes.result).slice(0, 300)}\``
+        : '';
+      const text = `Successfully performed **${actionType}**.${detail}`;
+      await interaction.editReply(DiscordUIComponents.createSuccessEmbed('Action Executed', text));
+      await this.remember(convoId, prompt, `I did ${actionType} successfully.`);
+    } else {
+      const errText = dispatchRes.error || 'Execution failed.';
+      await interaction.editReply(DiscordUIComponents.createErrorEmbed('Action Failed', errText));
+      await this.remember(convoId, prompt, `That failed: ${errText.slice(0, 300)}`);
+    }
+  }
+
+  private async askDisambiguation(
+    interaction: ChatInputCommandInteraction | ModalSubmitInteraction | StringSelectMenuInteraction,
+    env: {
+      guildId: string;
+      userId: string;
+      stage: (name: string) => void;
+    },
+    prompt: string,
+    convoId: string | null,
+    actionType: string,
+    params: Record<string, any>,
+    field: 'channelId' | 'roleId',
+    options: ChoiceOption[],
+    kind: string
+  ) {
+    const { guildId, userId, stage } = env;
+    stage(`ambiguous ${kind} - asking`);
+    const pending = await PendingChoiceRepository.create({
+      guildId,
+      userId,
+      action: actionType,
+      params,
+      field,
+      options,
+      prompt,
+    });
+    await interaction.editReply(
+      DiscordUIComponents.createDisambiguationEmbed(
+        `Which ${kind}?`,
+        `I found ${options.length} matching ${kind}s. Pick one below (expires in 5 minutes).`,
+        `disambig:${pending.id}`,
+        options.map((o) => ({ label: o.name.slice(0, 100), value: o.id, description: o.id }))
+      )
+    );
+    await this.remember(convoId, prompt, `I asked which ${kind} to use.`);
+  }
+
+  private async handleSelectMenu(interaction: StringSelectMenuInteraction) {
+    if (!interaction.customId.startsWith('disambig:')) return;
+    if (!interaction.guild) {
+      await interaction.reply({ content: 'Selections can only be used within a server.', flags: MessageFlags.Ephemeral });
+      return;
+    }
+    try {
+      await interaction.deferUpdate();
+    } catch (err: any) {
+      if (err?.code === 10062) {
+        logger.warn('Select interaction already expired before ack. Aborting.');
+        return;
+      }
+      throw err;
+    }
+
+    const pendingId = interaction.customId.split(':')[1] ?? '';
+    const guildId = interaction.guildId!;
+    const userId = interaction.user.id;
+    const guild = interaction.guild;
+    const startedAt = Date.now();
+    const ctxBase = { command: 'prompt-choice', guildId, userId };
+    const stage = (name: string) =>
+      logger.info({ ...ctxBase, elapsedMs: Date.now() - startedAt }, `prompt stage: ${name}`);
+    stage('choice deferred - consuming pending selection');
+
+    const pending = await PendingChoiceRepository.consume(pendingId, guildId, userId);
+    if (!pending) {
+      await interaction.editReply(
+        DiscordUIComponents.createErrorEmbed(
+          'Selection Expired',
+          'This choice already expired, was used, or belongs to someone else. Run /prompt again.'
+        )
+      );
+      return;
+    }
+
+    const chosen = interaction.values[0];
+    const options = pending.options as unknown as ChoiceOption[];
+    if (!chosen || !options.some((o) => o.id === chosen)) {
+      stage('tampered selection - replying');
+      await interaction.editReply(
+        DiscordUIComponents.createErrorEmbed('Invalid Selection', 'That option is not one I offered. Run /prompt again.')
+      );
+      return;
+    }
+
+    stage(`choice ${pending.field}=${chosen} - resuming`);
+    const member = await guild.members.fetch(userId);
+    const guildDb = await GuildRepository.findOrCreate(guildId, guild.name);
+    const { id: convoId } = await this.loadHistory(guildId, userId, interaction.channelId ?? guildId);
+    await this.executeSingleAction(interaction, {
+      guild,
+      actorMember: member,
+      guildId,
+      userId,
+      settings: guildDb.settings,
+      stage,
+      ctxBase,
+    }, (pending.prompt as string) || 'choice follow-up', convoId,
+      pending.action, { ...((pending.params as Record<string, any>) ?? {}), [pending.field]: chosen });
+  }
+
+  /** Free-chat reply with history context; provider mismatch falls back gracefully. */  private async chatReply(
     prompt: string,
     context: { guildId: string; guild: Guild; userId: string; history: string[] }
   ): Promise<string> {

@@ -296,3 +296,46 @@ export class PendingQuestionRepository {
     return pending;
   }
 }
+
+export interface ChoiceOption {
+  id: string;
+  name: string;
+}
+
+export class PendingChoiceRepository {
+  static async create(data: {
+    guildId: string;
+    userId: string;
+    action: string;
+    params: Record<string, any>;
+    field: 'channelId' | 'roleId';
+    options: ChoiceOption[];
+    prompt: string;
+    expiresInMs?: number;
+  }) {
+    return prisma.pendingChoice.create({
+      data: {
+        guildId: data.guildId,
+        userId: data.userId,
+        action: data.action,
+        params: data.params as any,
+        field: data.field,
+        options: data.options as any,
+        prompt: data.prompt.slice(0, 2000),
+        expiresAt: new Date(Date.now() + (data.expiresInMs ?? 5 * 60 * 1000)),
+      },
+    });
+  }
+
+  static async consume(id: string, guildId: string, userId: string) {
+    const pending = await prisma.pendingChoice.findFirst({
+      where: { id, guildId, userId, answered: false, expiresAt: { gt: new Date() } },
+    });
+    if (!pending) return null;
+    await prisma.pendingChoice.update({
+      where: { id: pending.id },
+      data: { answered: true },
+    });
+    return pending;
+  }
+}

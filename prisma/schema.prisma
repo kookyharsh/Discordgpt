@@ -22,6 +22,7 @@ model Guild {
   auditLogs        AuditLog[]
   confirmations    ConfirmationRequest[]
   pendingQuestions PendingQuestion[]
+  pendingChoices   PendingChoice[]
 }
 
 model GuildSettings {
@@ -192,6 +193,23 @@ model PendingQuestion {
   answered       Boolean  @default(false)
   expiresAt      DateTime
   createdAt      DateTime @default(now())
+
+  @@index([guildId, userId])
+}
+
+model PendingChoice {
+  id        String   @id @default(uuid())
+  guildId   String
+  guild     Guild    @relation(fields: [guildId], references: [discordGuildId], onDelete: Cascade)
+  userId    String
+  action    String
+  params    Json
+  field     String
+  options   Json
+  prompt    String   @default("")
+  answered  Boolean  @default(false)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
 
   @@index([guildId, userId])
 }
