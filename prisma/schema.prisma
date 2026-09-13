@@ -1,0 +1,242 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Guild {
+  id             String                @id @default(uuid())
+  discordGuildId String                @unique
+  name           String?
+  createdAt      DateTime              @default(now())
+  updatedAt      DateTime              @updatedAt
+  settings       GuildSettings?
+  conversations  Conversation[]
+  executions     ActionExecution[]
+  schedules      ScheduledAction[]
+  commands       GeneratedCommand[]
+  auditLogs      AuditLog[]
+  confirmations  ConfirmationRequest[]
+
+  @@map("guilds")
+}
+
+model User {
+  id            String                @id @default(uuid())
+  discordUserId String                @unique
+  username      String?
+  createdAt     DateTime              @default(now())
+  updatedAt     DateTime              @updatedAt
+  conversations Conversation[]
+  executions    ActionExecution[]
+  schedules     ScheduledAction[]
+  commands      GeneratedCommand[]
+  auditLogs     AuditLog[]
+  confirmations ConfirmationRequest[]
+
+  @@map("users")
+}
+
+model GuildMemberState {
+  id             String   @id @default(uuid())
+  discordGuildId String
+  discordUserId  String
+  roles          String[]
+  lastActiveAt   DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@unique([discordGuildId, discordUserId])
+  @@map("guild_member_states")
+}
+
+model GuildSettings {
+  id                  String   @id @default(uuid())
+  guildId             String   @unique
+  guild               Guild    @relation(fields: [guildId], references: [id], onDelete: Cascade)
+  enabled             Boolean  @default(true)
+  timezone            String   @default("UTC")
+  confirmationMode    String   @default("STRICT")
+  maxSchedules        Int      @default(20)
+  maxActionsPerMinute Int      @default(30)
+  allowedActions      String[] @default([])
+  disabledActions     String[] @default([])
+  auditChannelId      String?
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  @@map("guild_settings")
+}
+
+model Conversation {
+  id        String                @id @default(uuid())
+  guildId   String
+  guild     Guild                 @relation(fields: [guildId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  active    Boolean               @default(true)
+  createdAt DateTime              @default(now())
+  updatedAt DateTime              @updatedAt
+  messages  ConversationMessage[]
+
+  @@index([guildId, userId])
+  @@map("conversations")
+}
+
+model ConversationMessage {
+  id             String       @id @default(uuid())
+  conversationId String
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  role           String
+  content        String
+  metadata       Json?
+  createdAt      DateTime     @default(now())
+
+  @@map("conversation_messages")
+}
+
+enum ExecutionStatus {
+  PENDING
+  RUNNING
+  COMPLETED
+  PARTIAL_FAILURE
+  FAILED
+  CANCELLED
+  REJECTED
+}
+
+model ActionExecution {
+  id           String                @id @default(uuid())
+  guildId      String
+  guild        Guild                 @relation(fields: [guildId], references: [id], onDelete: Cascade)
+  userId       String
+  user         User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  prompt       String
+  parsedIntent Json?
+  actionPlan   Json?
+  status       ExecutionStatus       @default(PENDING)
+  error        String?
+  startedAt    DateTime              @default(now())
+  completedAt  DateTime?
+  steps        ActionExecutionStep[]
+  auditLogs    AuditLog[]
+
+  @@index([guildId, userId])
+  @@map("action_executions")
+}
+
+model ActionExecutionStep {
+  id          String          @id @default(uuid())
+  executionId String
+  execution   ActionExecution @relation(fields: [executionId], references: [id], onDelete: Cascade)
+  stepId      String
+  action      String
+  parameters  Json
+  status      ExecutionStatus @default(PENDING)
+  result      Json?
+  error       String?
+  executedAt  DateTime?
+
+  @@map("action_execution_steps")
+}
+
+model ScheduledAction {
+  id             String              @id @default(uuid())
+  guildId        String
+  guild          Guild               @relation(fields: [guildId], references: [id], onDelete: Cascade)
+  createdBy      String
+  user           User                @relation(fields: [createdBy], references: [id], onDelete: Cascade)
+  actionPlan     Json
+  scheduleType   String              @default("cron")
+  cronExpression String
+  timezone       String              @default("UTC")
+  enabled        Boolean             @default(true)
+  nextRunAt      DateTime?
+  createdAt      DateTime            @default(now())
+  updatedAt      DateTime            @updatedAt
+  runs           ScheduledActionRun[]
+
+  @@index([guildId])
+  @@map("scheduled_actions")
+}
+
+model ScheduledActionRun {
+  id          String          @id @default(uuid())
+  scheduleId  String
+  schedule    ScheduledAction @relation(fields: [scheduleId], references: [id], onDelete: Cascade)
+  executedAt  DateTime        @default(now())
+  status      ExecutionStatus
+  result      Json?
+  error       String?
+
+  @@map("scheduled_action_runs")
+}
+
+model GeneratedCommand {
+  id          String   @id @default(uuid())
+  guildId     String
+  guild       Guild    @relation(fields: [guildId], references: [id], onDelete: Cascade)
+  createdBy   String
+  user        User     @relation(fields: [createdBy], references: [id], onDelete: Cascade)
+  name        String
+  description String
+  actionPlan  Json
+  enabled     Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([guildId, name])
+  @@map("generated_commands")
+}
+
+model AuditLog {
+  id          String           @id @default(uuid())
+  guildId     String
+  guild       Guild            @relation(fields: [guildId], references: [id], onDelete: Cascade)
+  userId      String
+  user        User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  executionId String?
+  execution   ActionExecution? @relation(fields: [executionId], references: [id], onDelete: SetNull)
+  action      String
+  targetType  String?
+  targetId    String?
+  parameters  Json?
+  result      Json?
+  status      String
+  error       String?
+  createdAt   DateTime         @default(now())
+
+  @@index([guildId])
+  @@index([userId])
+  @@map("audit_logs")
+}
+
+model RateLimitState {
+  id        String   @id @default(uuid())
+  key       String   @unique
+  count     Int      @default(0)
+  resetAt   DateTime
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("rate_limit_states")
+}
+
+model ConfirmationRequest {
+  id          String   @id @default(uuid())
+  guildId     String
+  guild       Guild    @relation(fields: [guildId], references: [id], onDelete: Cascade)
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  actionPlan  Json
+  planHash    String
+  nonce       String   @unique
+  consumed    Boolean  @default(false)
+  expiresAt   DateTime
+  createdAt   DateTime @default(now())
+
+  @@index([guildId, userId])
+  @@map("confirmation_requests")
+}
