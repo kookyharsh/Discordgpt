@@ -68,14 +68,23 @@ export class InteractionHandler {
     const guildId = interaction.guildId!;
     const userId = interaction.user.id;
     const guild = interaction.guild;
+    const startedAt = Date.now();
+    const ctxBase = { command: interaction.commandName, guildId, userId };
+    const stage = (name: string) =>
+      logger.info({ ...ctxBase, elapsedMs: Date.now() - startedAt }, `prompt stage: ${name}`);
+    stage('deferred - fetching member');
+
     const member = await guild.members.fetch(userId);
+    stage('member fetched - loading guild settings');
 
     const guildDb = await GuildRepository.findOrCreate(guildId, guild.name);
     const settings = guildDb.settings;
+    stage('guild ready');
 
     if (interaction.commandName === 'prompt') {
       const rawPrompt = interaction.options.getString('request', true);
       const prompt = InjectionDefense.sanitizeExternalText(rawPrompt);
+      stage(`prompt received (${prompt.length} chars) - injection check`);
 
       if (InjectionDefense.detectPromptInjection(prompt)) {
         const errUI = DiscordUIComponents.createErrorEmbed(
@@ -89,30 +98,40 @@ export class InteractionHandler {
       let parsed = FallbackParser.parse(prompt);
 
       if (!parsed) {
+        stage('fallback miss - fetching channels/roles for LLM context');
         const channels = (await guild.channels.fetch()).map((c) => ({ id: c?.id || '', name: c?.name || '' }));
         const roles = (await guild.roles.fetch()).map((r) => ({ id: r.id, name: r.name }));
 
+        stage(`context ready (${channels.length} channels, ${roles.length} roles) - calling LLM`);
+        // Keep Discord updated so it doesn't look stuck on "thinking".
+        await interaction.editReply('Parsing your request with AI - this can take a few seconds…');
         parsed = await this.llmProvider.parseIntent(prompt, {
           guildId,
           channels,
           roles,
           allowedActions: settings?.allowedActions?.length ? settings.allowedActions : ['create_channel', 'delete_channel', 'create_role', 'assign_role', 'timeout_member', 'ban_member', 'send_message'],
         });
+        stage(`LLM done - status=${parsed.status}`);
+      } else {
+        stage(`fallback hit - action=${parsed.action}`);
       }
 
       if (parsed.status === IntentStatus.UNSUPPORTED || parsed.status === IntentStatus.REJECTED) {
+        stage(`rejected - replying (${parsed.reason?.slice(0, 80) ?? 'no reason'})`);
         const errUI = DiscordUIComponents.createErrorEmbed('Operation Rejected', parsed.reason || 'This request is unsupported or violates safety guidelines.');
         await interaction.editReply(errUI);
         return;
       }
 
       if (parsed.status === IntentStatus.CLARIFICATION_REQUIRED) {
+        stage('clarification required - replying');
         const errUI = DiscordUIComponents.createErrorEmbed('Clarification Required', parsed.question || 'Please provide more details.');
         await interaction.editReply(errUI);
         return;
       }
 
       if (parsed.status === IntentStatus.DIRECT_ACTION && parsed.action) {
+        stage(`dispatching action=${parsed.action}`);
         const execution = await ExecutionRepository.createExecution({
           guildId,
           userId,
@@ -139,6 +158,13 @@ export class InteractionHandler {
         }
 
         const dispatchRes = await ActionDispatcher.dispatch(actionType, params, ctx);
+        stage(
+          dispatchRes.requiresConfirmation
+            ? 'dispatch needs confirmation - replying'
+            : dispatchRes.success
+              ? `dispatch ok - replying`
+              : `dispatch failed (${dispatchRes.error?.slice(0, 80) ?? 'unknown'}) - replying`
+        );
 
         if (dispatchRes.requiresConfirmation && dispatchRes.confirmationDetails) {
           const ui = DiscordUIComponents.createConfirmationEmbed(

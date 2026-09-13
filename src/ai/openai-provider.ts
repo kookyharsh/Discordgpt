@@ -58,8 +58,10 @@ Context roles: ${JSON.stringify(context.roles)}
         ],
       };
 
-      const post = (withJsonMode: boolean) =>
-        fetch(endpoint, {
+      const post = (withJsonMode: boolean, timeoutMs = 45000) => {
+        const ctrl = new AbortController();
+        const timer = setTimeout(() => ctrl.abort(new Error('LLM request timed out')), timeoutMs);
+        return fetch(endpoint, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -70,7 +72,9 @@ Context roles: ${JSON.stringify(context.roles)}
           body: JSON.stringify(
             withJsonMode ? { ...baseBody, response_format: { type: 'json_object' } } : baseBody
           ),
-        });
+          signal: ctrl.signal,
+        }).finally(() => clearTimeout(timer));
+      };
 
       // Some models (esp. free-tier) reject response_format; retry without it.
       let response = await post(true);
@@ -162,6 +166,9 @@ function friendlyReason(provider: string, error: any): string {
   const msg = String(error?.message ?? error ?? '');
   if (/HTTP 429/.test(msg)) {
     return `${provider} is rate-limited right now (free-tier upstream limit). Wait ~1 min and retry; simple commands (create channel/role, ban, timeout) still work offline.`;
+  }
+  if (/timed out|TimeoutError|aborted|abort/i.test(msg)) {
+    return `${provider} took too long to respond (45s timeout). Retry once; if it persists try a different model.`;
   }
   if (/HTTP 401|invalid.*key|unauthorized/i.test(msg)) {
     return `${provider} rejected the API key (HTTP 401). Check OPENROUTER_API_KEY/OPENAI_API_KEY in .env.`;
