@@ -47,7 +47,7 @@ export const assignRoleAction: ActionDefinition = {
     const role = await ctx.guild.roles.fetch(input.roleId);
     if (!role) throw new Error(`Role ${input.roleId} not found.`);
 
-    const hierarchyCheck = HierarchyEngine.canBotManageRole(ctx.guild, role);
+    const hierarchyCheck = await HierarchyEngine.canBotManageRole(ctx.guild, role);
     if (!hierarchyCheck.allowed) {
       throw new Error(hierarchyCheck.reason);
     }

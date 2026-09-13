@@ -3,23 +3,30 @@ import { Prisma } from '@prisma/client';
 
 export class GuildRepository {
   static async findOrCreate(discordGuildId: string, name?: string) {
-    let guild = await prisma.guild.findUnique({
+    // Upsert: two concurrent /prompt commands otherwise race findUnique+create (P2002).
+    const guild = await prisma.guild.upsert({
       where: { discordGuildId },
+      update: name ? { name } : {},
+      create: {
+        discordGuildId,
+        name,
+        settings: {
+          create: {
+            timezone: 'UTC',
+            enabled: true,
+          },
+        },
+      },
       include: { settings: true },
     });
 
-    if (!guild) {
-      guild = await prisma.guild.create({
-        data: {
-          discordGuildId,
-          name,
-          settings: {
-            create: {
-              timezone: 'UTC',
-              enabled: true,
-            },
-          },
-        },
+    // Backfill settings for guilds created before the nested-create (or partial writes).
+    if (!guild.settings) {
+      await prisma.guildSettings.create({
+        data: { guildId: discordGuildId, timezone: 'UTC', enabled: true },
+      });
+      return prisma.guild.findUniqueOrThrow({
+        where: { discordGuildId },
         include: { settings: true },
       });
     }

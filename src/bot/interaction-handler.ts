@@ -96,7 +96,7 @@ export class InteractionHandler {
           guildId,
           channels,
           roles,
-          allowedActions: settings?.allowedActions.length ? settings.allowedActions : ['create_channel', 'delete_channel', 'create_role', 'assign_role', 'timeout_member', 'ban_member', 'send_message'],
+          allowedActions: settings?.allowedActions?.length ? settings.allowedActions : ['create_channel', 'delete_channel', 'create_role', 'assign_role', 'timeout_member', 'ban_member', 'send_message'],
         });
       }
 
@@ -187,9 +187,21 @@ export class InteractionHandler {
         return;
       }
 
+      // ACK before slow DB + Discord work (3s interaction window).
+      // After deferUpdate, respond with editReply (update would throw).
+      try {
+        await interaction.deferUpdate();
+      } catch (err: any) {
+        if (err?.code === 10062) {
+          logger.warn('Button interaction already expired before ack. Aborting.');
+          return;
+        }
+        throw err;
+      }
+
       const confirmation = await ConfirmationRepository.findAndConsume(nonce, guildId, userId, '');
       if (!confirmation) {
-        await interaction.update(DiscordUIComponents.createErrorEmbed('Invalid or Expired Confirmation', 'This confirmation has expired, was already consumed, or belonged to another user.'));
+        await interaction.editReply(DiscordUIComponents.createErrorEmbed('Invalid or Expired Confirmation', 'This confirmation has expired, was already consumed, or belonged to another user.'));
         return;
       }
 
@@ -207,15 +219,15 @@ export class InteractionHandler {
 
       const actionDef = (await import('../actions/registry.js')).ActionRegistry.get(plan.type);
       if (!actionDef) {
-        await interaction.update(DiscordUIComponents.createErrorEmbed('Execution Failed', 'Action definition no longer exists.'));
+        await interaction.editReply(DiscordUIComponents.createErrorEmbed('Execution Failed', 'Action definition no longer exists.'));
         return;
       }
 
       try {
         await actionDef.handler(ctx, plan.input);
-        await interaction.update(DiscordUIComponents.createSuccessEmbed('Action Executed', `Successfully executed confirmed operation **${plan.type}**.`));
+        await interaction.editReply(DiscordUIComponents.createSuccessEmbed('Action Executed', `Successfully executed confirmed operation **${plan.type}**.`));
       } catch (err: any) {
-        await interaction.update(DiscordUIComponents.createErrorEmbed('Execution Failed', err.message));
+        await interaction.editReply(DiscordUIComponents.createErrorEmbed('Execution Failed', err.message));
       }
     }
   }

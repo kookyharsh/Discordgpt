@@ -52,7 +52,7 @@ export class ActionDispatcher {
       };
     }
 
-    const botPermCheck = PermissionEngine.checkBotPermissions(ctx.guild, action.requiredBotPermissions);
+    const botPermCheck = await PermissionEngine.checkBotPermissions(ctx.guild, action.requiredBotPermissions);
     if (!botPermCheck.allowed) {
       return {
         success: false,

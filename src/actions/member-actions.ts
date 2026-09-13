@@ -20,7 +20,7 @@ export const timeoutMemberAction: ActionDefinition = {
     const member = await ctx.guild.members.fetch(input.memberId);
     if (!member) throw new Error(`Member ${input.memberId} not found.`);
 
-    const hierarchyCheck = HierarchyEngine.canBotManageMember(ctx.guild, member);
+    const hierarchyCheck = await HierarchyEngine.canBotManageMember(ctx.guild, member);
     if (!hierarchyCheck.allowed) {
       throw new Error(hierarchyCheck.reason);
     }
@@ -51,7 +51,7 @@ export const banMemberAction: ActionDefinition = {
     const member = await ctx.guild.members.fetch(input.memberId);
     if (!member) throw new Error(`Member ${input.memberId} not found.`);
 
-    const hierarchyCheck = HierarchyEngine.canBotManageMember(ctx.guild, member);
+    const hierarchyCheck = await HierarchyEngine.canBotManageMember(ctx.guild, member);
     if (!hierarchyCheck.allowed) {
       throw new Error(hierarchyCheck.reason);
     }

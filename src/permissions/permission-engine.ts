@@ -7,11 +7,17 @@ export interface PermissionCheckResult {
 }
 
 export class PermissionEngine {
-  static checkBotPermissions(
+  static async getBotMember(guild: Guild) {
+    // guild.members.me is only populated with cached members (privileged intent).
+    // Fall back to a REST fetch so Guilds-only bots still resolve the bot member.
+    return guild.members.me ?? (await guild.members.fetchMe().catch(() => null));
+  }
+
+  static async checkBotPermissions(
     guild: Guild,
     requiredPermissions: bigint[]
-  ): PermissionCheckResult {
-    const botMember = guild.members.me;
+  ): Promise<PermissionCheckResult> {
+    const botMember = await this.getBotMember(guild);
     if (!botMember) {
       return {
         allowed: false,
@@ -80,8 +86,8 @@ export class HierarchyEngine {
     return actor.roles.highest.position > targetRole.position;
   }
 
-  static canBotManageRole(guild: Guild, targetRole: Role): { allowed: boolean; reason?: string } {
-    const botMember = guild.members.me;
+  static async canBotManageRole(guild: Guild, targetRole: Role): Promise<{ allowed: boolean; reason?: string }> {
+    const botMember = await PermissionEngine.getBotMember(guild);
     if (!botMember) return { allowed: false, reason: 'Bot member not found.' };
 
     if (targetRole.managed) {
@@ -98,8 +104,8 @@ export class HierarchyEngine {
     return { allowed: true };
   }
 
-  static canBotManageMember(guild: Guild, targetMember: GuildMember): { allowed: boolean; reason?: string } {
-    const botMember = guild.members.me;
+  static async canBotManageMember(guild: Guild, targetMember: GuildMember): Promise<{ allowed: boolean; reason?: string }> {
+    const botMember = await PermissionEngine.getBotMember(guild);
     if (!botMember) return { allowed: false, reason: 'Bot member not found.' };
 
     if (guild.ownerId === targetMember.id) {
