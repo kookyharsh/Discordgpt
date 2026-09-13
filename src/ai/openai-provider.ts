@@ -50,6 +50,11 @@ Context roles: ${JSON.stringify(context.roles)}
 
     try {
       const endpoint = `${this.baseUrl}/chat/completions`;
+      const startedAt = Date.now();
+      logger.debug(
+        { provider: this.providerName, model: this.model, promptLen: prompt.length, channels: context.channels.length, roles: context.roles.length },
+        'llm request'
+      );
       const baseBody: Record<string, unknown> = {
         model: this.model,
         messages: [
@@ -110,6 +115,10 @@ Context roles: ${JSON.stringify(context.roles)}
 
       const data: any = await response.json();
       const rawContent = data.choices?.[0]?.message?.content || '';
+      logger.debug(
+        { provider: this.providerName, latencyMs: Date.now() - startedAt, contentHead: String(rawContent).slice(0, 500) },
+        'llm response'
+      );
       if (!rawContent.trim()) {
         throw new Error(`Empty completion from ${this.providerName} (model ${this.model})`);
       }

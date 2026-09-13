@@ -37,18 +37,31 @@ Context channels: ${JSON.stringify(context.channels)}
 Context roles: ${JSON.stringify(context.roles)}
 `;
 
+    const startedAt = Date.now();
+    logger.debug(
+      { model: config.GEMINI_MODEL, promptLen: prompt.length, channels: context.channels.length, roles: context.roles.length },
+      'gemini request'
+    );
+
     try {
-      const response = await this.ai.models.generateContent({
-        model: config.GEMINI_MODEL,
-        contents: [
-          { role: 'user', parts: [{ text: `${systemPrompt}\nUser Request: "${prompt}"` }] }
-        ],
-        config: {
-          responseMimeType: 'application/json',
-        },
-      });
+      const response = await withTimeout(
+        this.ai.models.generateContent({
+          model: config.GEMINI_MODEL,
+          contents: [
+            { role: 'user', parts: [{ text: `${systemPrompt}\nUser Request: "${prompt}"` }] }
+          ],
+          config: {
+            responseMimeType: 'application/json',
+          },
+        }),
+        45000
+      );
 
       const responseText = response.text || '';
+      logger.debug(
+        { latencyMs: Date.now() - startedAt, contentHead: responseText.slice(0, 500) },
+        'gemini response'
+      );
       if (!responseText.trim()) {
         throw new Error(`Empty completion from Gemini (model ${config.GEMINI_MODEL})`);
       }
@@ -64,6 +77,8 @@ Context roles: ${JSON.stringify(context.roles)}
         reason = 'Gemini rejected the API key. Check GEMINI_API_KEY in .env.';
       } else if (/429|RESOURCE_EXHAUSTED|quota/i.test(msg)) {
         reason = 'Gemini is rate-limited/quota-exceeded right now. Wait a bit and retry.';
+      } else if (/timed out|TimeoutError|aborted|abort/i.test(msg)) {
+        reason = `Gemini took too long to respond (45s timeout). Retry once; if it persists try a different model.`;
       } else if (/Empty completion/.test(msg)) {
         reason = 'Gemini returned an empty reply. Retry once; if it persists try a different model.';
       } else {
@@ -73,4 +88,13 @@ Context roles: ${JSON.stringify(context.roles)}
       return { status: IntentStatus.REJECTED, reason };
     }
   }
+}
+
+/** The SDK call has no built-in timeout - cap it so "thinking" can never hang forever. */
+function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
+  let timer: ReturnType<typeof setTimeout>;
+  const timeout = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => reject(new Error(`Gemini request timed out after ${ms}ms`)), ms);
+  });
+  return Promise.race([promise, timeout]).finally(() => clearTimeout(timer!));
 }

@@ -112,6 +112,7 @@ export class InteractionHandler {
           allowedActions: settings?.allowedActions?.length ? settings.allowedActions : ['create_channel', 'delete_channel', 'create_role', 'assign_role', 'timeout_member', 'ban_member', 'send_message'],
         });
         stage(`LLM done - status=${parsed.status}`);
+        logger.debug({ ...ctxBase, parsed: JSON.stringify(parsed).slice(0, 1000) }, 'parsed intent');
       } else {
         stage(`fallback hit - action=${parsed.action}`);
       }
