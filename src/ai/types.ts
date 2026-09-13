@@ -18,6 +18,8 @@ export const ActionStepSchema = z.object({
   parameters: z.record(z.any()),
 });
 
+export type ActionStep = z.infer<typeof ActionStepSchema>;
+
 export const ParsedIntentSchema = z.object({
   status: z.nativeEnum(IntentStatus),
   action: z.string().optional(),

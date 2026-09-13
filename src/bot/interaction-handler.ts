@@ -8,7 +8,22 @@ import { FallbackParser } from '../ai/fallback-parser.js';
 import { IntentStatus } from '../ai/types.js';
 import { InjectionDefense } from '../security/injection-defense.js';
 import { EntityResolver } from '../entities/entity-resolver.js';
+import { executeActionPlan, summarizePlan, MAX_PLAN_STEPS } from '../actions/plan-executor.js';
 import { logger } from '../utils/logger.js';
+
+/** Single actions that operate on "this channel" when no channel is given. */
+const CHANNEL_ACTIONS = new Set([
+  'send_message',
+  'purge_messages',
+  'set_slowmode',
+  'lock_channel',
+  'unlock_channel',
+  'rename_channel',
+  'set_topic',
+  'pin_message',
+  'unpin_message',
+  'delete_channel',
+]);
 
 export class InteractionHandler {
   private llmProvider = createLLMProvider();
@@ -315,6 +330,54 @@ export class InteractionHandler {
       return;
     }
 
+    if (parsed.status === IntentStatus.ACTION_PLAN && parsed.steps?.length) {
+      if (parsed.steps.length > MAX_PLAN_STEPS) {
+        const msg = `That plan has ${parsed.steps.length} steps; I execute at most ${MAX_PLAN_STEPS}. Break it into smaller requests.`;
+        await interaction.editReply(DiscordUIComponents.createErrorEmbed('Plan Too Large', msg));
+        await this.remember(convoId, prompt, msg);
+        return;
+      }
+      stage(`executing plan (${parsed.steps.length} steps)`);
+      const execution = await ExecutionRepository.createExecution({
+        guildId,
+        userId,
+        prompt,
+        status: 'RUNNING',
+        parsedIntent: parsed,
+      });
+      const planRes = await executeActionPlan(parsed.steps, 0, {
+        guildId,
+        userId,
+        executionId: execution.id,
+        guild,
+        actorMember,
+        settings,
+      });
+      if (!planRes.completed && planRes.confirmation) {
+        const c = planRes.confirmation;
+        await interaction.editReply(
+          DiscordUIComponents.createConfirmationEmbed(
+            c.actionType,
+            c.riskLevel,
+            `Plan step ${c.stepLabel} needs approval.\n${summarizePlan(planRes.results)}`,
+            c.nonce
+          )
+        );
+        await this.remember(convoId, prompt, `Plan paused at step ${c.stepLabel} waiting for confirmation.`);
+        return;
+      }
+      const summary = summarizePlan(planRes.results);
+      const allOk = planRes.results.length > 0 && planRes.results.every((r) => r.ok);
+      stage(allOk ? 'plan ok - replying' : 'plan had failures - replying');
+      await interaction.editReply(
+        allOk
+          ? DiscordUIComponents.createSuccessEmbed('Plan Executed', summary)
+          : DiscordUIComponents.createErrorEmbed('Plan Had Failures', summary)
+      );
+      await this.remember(convoId, prompt, `${allOk ? 'Plan done' : 'Plan had failures'}: ${summary.slice(0, 300)}`);
+      return;
+    }
+
     if (parsed.status === IntentStatus.DIRECT_ACTION && parsed.action) {
       stage(`dispatching action=${parsed.action}`);
       const execution = await ExecutionRepository.createExecution({
@@ -340,6 +403,14 @@ export class InteractionHandler {
       if (params.channelName) {
         const res = await EntityResolver.resolveChannel(guild, params.channelName);
         if (res.resolved) params.channelId = res.resolved.id;
+      }
+      if (params.roleName) {
+        const res = await EntityResolver.resolveRole(guild, params.roleName);
+        if (res.resolved) params.roleId = res.resolved.id;
+      }
+      // "purge 20" means HERE: channel-taking actions default to the current channel.
+      if (!params.channelId && CHANNEL_ACTIONS.has(actionType) && interaction.channelId) {
+        params.channelId = interaction.channelId;
       }
 
       const dispatchRes = await ActionDispatcher.dispatch(actionType, params, ctx);
@@ -380,7 +451,9 @@ export class InteractionHandler {
       const detail =
         parsed.status === IntentStatus.DIRECT_ACTION
           ? 'The AI response did not include an executable action. Try rephrasing with a concrete operation.'
-          : `The AI returned status "${parsed.status}", which this bot cannot execute yet. Try a single concrete operation (e.g. "Create channel welcome").`;
+          : parsed.status === IntentStatus.ACTION_PLAN
+            ? 'The AI returned an empty plan with no steps. Try rephrasing with concrete operations.'
+            : `The AI returned status "${parsed.status}", which this bot cannot execute yet. Try a single concrete operation (e.g. "Create channel welcome").`;
       await interaction.editReply(
         DiscordUIComponents.createErrorEmbed('Operation Rejected', parsed.reason || detail)
       );
@@ -509,6 +582,39 @@ export class InteractionHandler {
       const plan = confirmation.actionPlan as any;
       const guild = interaction.guild!;
       const member = await guild.members.fetch(userId);
+
+      // Multi-step plan resumption (see executeActionPlan).
+      if (plan?.type === '__plan__' && Array.isArray(plan.steps)) {
+        const settings = await GuildRepository.getSettings(guildId);
+        const planRes = await executeActionPlan(plan.steps, plan.index ?? 0, {
+          guildId,
+          userId,
+          executionId: `plan-${Date.now()}`,
+          guild,
+          actorMember: member,
+          settings,
+        });
+        if (!planRes.completed && planRes.confirmation) {
+          const c = planRes.confirmation;
+          await interaction.editReply(
+            DiscordUIComponents.createConfirmationEmbed(
+              c.actionType,
+              c.riskLevel,
+              `Plan step ${c.stepLabel} needs approval.\n${summarizePlan(planRes.results)}`,
+              c.nonce
+            )
+          );
+          return;
+        }
+        const summary = summarizePlan(planRes.results);
+        const allOk = planRes.results.length > 0 && planRes.results.every((r) => r.ok);
+        await interaction.editReply(
+          allOk
+            ? DiscordUIComponents.createSuccessEmbed('Plan Executed', summary)
+            : DiscordUIComponents.createErrorEmbed('Plan Had Failures', summary)
+        );
+        return;
+      }
 
       const ctx = {
         guildId,
