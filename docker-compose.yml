@@ -5,8 +5,8 @@ services:
     image: postgres:16-alpine
     container_name: discordgpt-postgres
     environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change_me_in_env}
       POSTGRES_DB: discordgpt
     ports:
       - "5432:5432"
@@ -35,7 +35,7 @@ services:
     build: .
     container_name: discordgpt-bot
     environment:
-      - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/discordgpt?schema=public
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-change_me_in_env}@postgres:5432/discordgpt?schema=public
       - REDIS_URL=redis://redis:6379
       - NODE_ENV=production
       - PORT=3000
