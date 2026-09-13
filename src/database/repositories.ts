@@ -210,6 +210,12 @@ export class ScheduledActionRepository {
     });
   }
 
+  static async findById(id: string, guildId: string) {
+    return prisma.scheduledAction.findFirst({
+      where: { id, guildId },
+    });
+  }
+
   static async delete(id: string, guildId: string) {
     return prisma.scheduledAction.deleteMany({
       where: { id, guildId },

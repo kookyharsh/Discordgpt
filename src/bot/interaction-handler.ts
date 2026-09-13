@@ -1,7 +1,8 @@
 import { Interaction, ChatInputCommandInteraction, ButtonInteraction, MessageFlags } from 'discord.js';
-import { GuildRepository, ConfirmationRepository, ExecutionRepository, AuditRepository } from '../database/repositories.js';
+import { GuildRepository, ConfirmationRepository, ExecutionRepository, AuditRepository, ScheduledActionRepository } from '../database/repositories.js';
 import { ActionDispatcher } from '../actions/dispatcher.js';
 import { DiscordUIComponents } from './ui.js';
+import { parseSettingValue, settingField } from './setting-options.js';
 import { createLLMProvider } from '../ai/factory.js';
 import { FallbackParser } from '../ai/fallback-parser.js';
 import { IntentStatus } from '../ai/types.js';
@@ -54,7 +55,12 @@ export class InteractionHandler {
 
     // ACK FIRST: Discord invalidates the interaction token after 3s.
     // All slow work (member fetch, DB, LLM) must happen after defer.
-    const needsEphemeral = interaction.commandName === 'prompt-audit' || interaction.commandName === 'prompt-help';
+    // All info commands reply ephemeral; /prompt stays public.
+    const needsEphemeral =
+      interaction.commandName === 'prompt-audit' ||
+      interaction.commandName === 'prompt-help' ||
+      interaction.commandName === 'prompt-schedules' ||
+      interaction.commandName === 'prompt-settings';
     try {
       await interaction.deferReply(needsEphemeral ? { flags: MessageFlags.Ephemeral } : undefined);
     } catch (err: any) {
@@ -200,10 +206,89 @@ export class InteractionHandler {
         );
       }
     } else if (interaction.commandName === 'prompt-audit') {
+      stage('listing audit logs');
       const logs = await AuditRepository.getRecentLogs(guildId, 10);
       const logSummary = logs.map((l: { createdAt: Date; action: string; userId: string; status: string }) => `• [${l.createdAt.toISOString()}] **${l.action}** by <@${l.userId}>: ${l.status}`).join('\n') || 'No audit logs found.';
       await interaction.editReply({ embeds: [DiscordUIComponents.createSuccessEmbed('Recent Audit Logs', logSummary).embeds[0]] });
+    } else if (interaction.commandName === 'prompt-schedules') {
+      const cancelId = interaction.options.getString('cancel_id', false)?.trim();
+      if (cancelId) {
+        stage(`cancelling schedule ${cancelId}`);
+        const result = await ScheduledActionRepository.delete(cancelId, guildId);
+        if (result.count === 0) {
+          await interaction.editReply(
+            DiscordUIComponents.createErrorEmbed('Schedule Not Found', `No active schedule with ID \`${cancelId}\` in this server.`)
+          );
+        } else {
+          stage('schedule cancelled');
+          await interaction.editReply({
+            embeds: [DiscordUIComponents.createSuccessEmbed('Schedule Cancelled', `Cancelled schedule \`${cancelId}\`. Already-queued runs are skipped automatically.`).embeds[0]],
+          });
+        }
+        return;
+      }
+      stage('listing schedules');
+      const schedules = await ScheduledActionRepository.listActiveForGuild(guildId);
+      const lines = schedules.map((s) => {
+        const plan = s.actionPlan as any;
+        const when = s.cronExpression
+          ? `cron \`${s.cronExpression}\`${s.timezone ? ` (${s.timezone})` : ''}`
+          : s.executeAt
+            ? `once at ${s.executeAt.toISOString()}`
+            : 'manual';
+        const next = s.nextRunAt ? `, next ${s.nextRunAt.toISOString()}` : '';
+        return `• \`${s.id}\` **${plan?.type ?? 'unknown'}** — ${when}${next}`;
+      });
+      await interaction.editReply({
+        embeds: [
+          DiscordUIComponents.createSuccessEmbed(
+            'Active Schedules',
+            lines.length > 0
+              ? `${lines.join('\n')}\n\nCancel one with \`/prompt-schedules cancel_id:<id>\`.`
+              : 'No active schedules in this server.'
+          ).embeds[0],
+        ],
+      });
+    } else if (interaction.commandName === 'prompt-settings') {
+      const key = interaction.options.getString('key', false);
+      const value = interaction.options.getString('value', false);
+      if (!key) {
+        stage('showing settings');
+        const s = settings;
+        const summary =
+          `**Enabled:** ${s?.enabled ?? true}\n` +
+          `**Timezone:** ${s?.timezone ?? 'UTC'}\n` +
+          `**Allowed actions:** ${(s?.allowedActions?.length ? s.allowedActions : ['(all)']).join(', ')}\n` +
+          `**Disabled actions:** ${(s?.disabledActions?.length ? s.disabledActions.join(', ') : '(none)')}\n\n` +
+          `Change one with \`/prompt-settings key:<key> value:<value>\`.`;
+        await interaction.editReply({
+          embeds: [DiscordUIComponents.createSuccessEmbed('Server Settings', summary).embeds[0]],
+        });
+        return;
+      }
+      if (!value) {
+        await interaction.editReply(
+          DiscordUIComponents.createErrorEmbed('Missing Value', `Provide a value: \`/prompt-settings key:${key} value:…\`.`)
+        );
+        return;
+      }
+      stage(`updating setting ${key}`);
+      const parsed = parseSettingValue(key, value);
+      const field = settingField(key);
+      if (!parsed.ok || !field) {
+        await interaction.editReply(
+          DiscordUIComponents.createErrorEmbed('Invalid Setting', parsed.error ?? `Unknown setting "${key}".`)
+        );
+        return;
+      }
+      await GuildRepository.updateSettings(guildId, { [field]: parsed.value });
+      stage('setting updated');
+      const display = Array.isArray(parsed.value) ? (parsed.value.length ? parsed.value.join(', ') : '(cleared)') : String(parsed.value);
+      await interaction.editReply({
+        embeds: [DiscordUIComponents.createSuccessEmbed('Setting Updated', `**${field}** is now \`${display}\`.`).embeds[0]],
+      });
     } else if (interaction.commandName === 'prompt-help') {
+      stage('showing help');
       await interaction.editReply({
         embeds: [
           DiscordUIComponents.createSuccessEmbed(
@@ -212,6 +297,12 @@ export class InteractionHandler {
           ).embeds[0]
         ],
       });
+    } else {
+      // Future-proof: every registered command must produce a reply.
+      stage(`unknown command ${interaction.commandName} - replying`);
+      await interaction.editReply(
+        DiscordUIComponents.createErrorEmbed('Unknown Command', `The command "${interaction.commandName}" is not implemented yet.`)
+      );
     }
   }
 
