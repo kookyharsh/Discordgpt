@@ -1,5 +1,6 @@
 import { GoogleGenAI } from '@google/genai';
-import { LLMProvider, ParsedIntent, ParsedIntentSchema, IntentStatus } from './types.js';
+import { LLMProvider, LLMContext, ParsedIntent, ParsedIntentSchema, IntentStatus } from './types.js';
+import { historyBlock } from './conversation-context.js';
 import { config } from '../config/index.js';
 import { logger } from '../utils/logger.js';
 
@@ -10,15 +11,7 @@ export class GeminiLLMProvider implements LLMProvider {
     this.ai = new GoogleGenAI({ apiKey: config.GEMINI_API_KEY });
   }
 
-  async parseIntent(
-    prompt: string,
-    context: {
-      guildId: string;
-      channels: Array<{ id: string; name: string }>;
-      roles: Array<{ id: string; name: string }>;
-      allowedActions: string[];
-    }
-  ): Promise<ParsedIntent> {
+  async parseIntent(prompt: string, context: LLMContext): Promise<ParsedIntent> {
     const systemPrompt = `
 You are a Discord action planner.
 You do NOT execute actions.
@@ -31,10 +24,12 @@ Rules:
 1. If the request is dangerous or unsupported (e.g. changing passwords, running scripts, accessing host), set status to "unsupported" or "rejected".
 2. If required details (e.g. channel name, user target) are missing, set status to "clarification_required" and ask a concise question.
 3. If the request matches a supported action, set status to "direct_action" or "action_plan".
-4. Output strict JSON conforming to the schema. Do NOT include markdown code fences or extra commentary outside JSON.
+4. If the user is chatting, asking a question, or wants information with NO server action involved, set status to "chat" and put a helpful conversational reply in "message" (plain text, may reference server context; NEVER claim you executed an action).
+5. Output strict JSON conforming to the schema. Do NOT include markdown code fences or extra commentary outside JSON.
 
 Context channels: ${JSON.stringify(context.channels)}
 Context roles: ${JSON.stringify(context.roles)}
+${historyBlock(context.history)}
 `;
 
     const startedAt = Date.now();
@@ -86,6 +81,37 @@ Context roles: ${JSON.stringify(context.roles)}
         reason = `Unable to parse request safely with Gemini model${short ? `: ${short}` : '.'}`;
       }
       return { status: IntentStatus.REJECTED, reason };
+    }
+  }
+
+  async chat(prompt: string, context: LLMContext): Promise<string> {
+    const startedAt = Date.now();
+    try {
+      const response = await withTimeout(
+        this.ai.models.generateContent({
+          model: config.GEMINI_MODEL,
+          contents: [
+            {
+              role: 'user',
+              parts: [
+                {
+                  text: `You are GPTcord, a friendly and concise Discord server assistant. Answer questions, explain things, and help with server management advice. Use the server context when relevant. Keep replies under 1500 characters. NEVER claim you executed a server action.\n\nServer channels: ${JSON.stringify(context.channels)}\nServer roles: ${JSON.stringify(context.roles)}\n${historyBlock(context.history)}\n\nUser: ${prompt}`,
+                },
+              ],
+            },
+          ],
+        }),
+        45000
+      );
+      const reply = (response.text || '').trim().slice(0, 1900);
+      if (!reply) throw new Error('Empty completion from Gemini');
+      return reply;
+    } catch (error: any) {
+      logger.error(
+        { err: String(error?.message ?? error).slice(0, 200), latencyMs: Date.now() - startedAt },
+        'Gemini chat failed'
+      );
+      return 'Sorry, I could not think of a reply just now. Try again in a moment.';
     }
   }
 }

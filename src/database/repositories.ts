@@ -222,3 +222,77 @@ export class ScheduledActionRepository {
     });
   }
 }
+
+const HISTORY_LIMIT = 10;
+const HISTORY_CHARS = 300;
+
+export class ConversationRepository {
+  /** Latest conversation for this user+channel, or a fresh one. Never throws. */
+  static async getOrCreate(guildId: string, userId: string, channelId: string) {
+    const existing = await prisma.conversation.findFirst({
+      where: { guildId, userId, channelId },
+      orderBy: { updatedAt: 'desc' },
+    });
+    if (existing) return existing;
+    return prisma.conversation.create({
+      data: { guildId, userId, channelId },
+    });
+  }
+
+  static async append(conversationId: string, role: 'user' | 'assistant', content: string) {
+    await prisma.conversationMessage.create({
+      data: { conversationId, role, content: content.slice(0, 2000) },
+    });
+    await prisma.conversation.update({
+      where: { id: conversationId },
+      data: { updatedAt: new Date() },
+    });
+  }
+
+  /** Oldest-first "role: text" lines for LLM context. Never throws. */
+  static async historyLines(conversationId: string, limit = HISTORY_LIMIT): Promise<string[]> {
+    const rows = await prisma.conversationMessage.findMany({
+      where: { conversationId },
+      orderBy: { createdAt: 'desc' },
+      take: limit,
+    });
+    return rows
+      .reverse()
+      .map((m) => `${m.role}: ${m.content.slice(0, HISTORY_CHARS)}`);
+  }
+}
+
+export class PendingQuestionRepository {
+  static async create(data: {
+    guildId: string;
+    userId: string;
+    channelId?: string;
+    question: string;
+    originalPrompt: string;
+    expiresInMs?: number;
+  }) {
+    return prisma.pendingQuestion.create({
+      data: {
+        guildId: data.guildId,
+        userId: data.userId,
+        channelId: data.channelId,
+        question: data.question.slice(0, 1000),
+        originalPrompt: data.originalPrompt.slice(0, 2000),
+        expiresAt: new Date(Date.now() + (data.expiresInMs ?? 15 * 60 * 1000)),
+      },
+    });
+  }
+
+  /** Single-use consume: returns the record only if live, owned, and unanswered. */
+  static async consume(id: string, guildId: string, userId: string) {
+    const pending = await prisma.pendingQuestion.findFirst({
+      where: { id, guildId, userId, answered: false, expiresAt: { gt: new Date() } },
+    });
+    if (!pending) return null;
+    await prisma.pendingQuestion.update({
+      where: { id: pending.id },
+      data: { answered: true },
+    });
+    return pending;
+  }
+}

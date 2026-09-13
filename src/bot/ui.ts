@@ -1,4 +1,4 @@
-import { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, StringSelectMenuBuilder } from 'discord.js';
+import { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, StringSelectMenuBuilder, ModalBuilder, TextInputBuilder, TextInputStyle } from 'discord.js';
 
 export class DiscordUIComponents {
   static createConfirmationEmbed(
@@ -59,8 +59,41 @@ export class DiscordUIComponents {
     return { embeds: [embed], components: [row] };
   }
 
-  static createSuccessEmbed(title: string, description: string) {
+  static createQuestionEmbed(question: string, pendingId: string) {
     const embed = new EmbedBuilder()
+      .setTitle('❓ Quick question')
+      .setColor(0x3498db)
+      .setDescription(question)
+      .setFooter({ text: 'Hit Answer below — expires in 15 minutes.' });
+
+    const answerButton = new ButtonBuilder()
+      .setCustomId(`clarify-answer:${pendingId}`)
+      .setLabel('Answer')
+      .setStyle(ButtonStyle.Primary);
+
+    const row = new ActionRowBuilder<ButtonBuilder>().addComponents(answerButton);
+
+    return { embeds: [embed], components: [row] };
+  }
+
+  static createAnswerModal(pendingId: string, question: string) {
+    const input = new TextInputBuilder()
+      .setCustomId('answer')
+      .setLabel('Your answer')
+      .setStyle(TextInputStyle.Paragraph)
+      .setRequired(true)
+      .setMaxLength(1000)
+      .setPlaceholder(question.slice(0, 100));
+
+    const row = new ActionRowBuilder<TextInputBuilder>().addComponents(input);
+
+    return new ModalBuilder()
+      .setCustomId(`clarify-modal:${pendingId}`)
+      .setTitle('Answer needed')
+      .addComponents(row);
+  }
+
+  static createSuccessEmbed(title: string, description: string) {    const embed = new EmbedBuilder()
       .setTitle(`✅ ${title}`)
       .setColor(0x2ecc71)
       .setDescription(description);

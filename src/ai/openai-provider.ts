@@ -1,4 +1,5 @@
-import { LLMProvider, ParsedIntent, ParsedIntentSchema, IntentStatus } from './types.js';
+import { LLMProvider, LLMContext, ParsedIntent, ParsedIntentSchema, IntentStatus } from './types.js';
+import { historyBlock } from './conversation-context.js';
 import { logger } from '../utils/logger.js';
 
 export interface OpenAILLMProviderOptions {
@@ -21,15 +22,7 @@ export class OpenAILLMProvider implements LLMProvider {
     this.providerName = options.providerName || 'OpenAI-Compatible';
   }
 
-  async parseIntent(
-    prompt: string,
-    context: {
-      guildId: string;
-      channels: Array<{ id: string; name: string }>;
-      roles: Array<{ id: string; name: string }>;
-      allowedActions: string[];
-    }
-  ): Promise<ParsedIntent> {
+  async parseIntent(prompt: string, context: LLMContext): Promise<ParsedIntent> {
     const systemPrompt = `
 You are a Discord action planner.
 You do NOT execute actions.
@@ -42,86 +35,23 @@ Rules:
 1. If the request is dangerous or unsupported (e.g. changing passwords, running scripts, accessing host), set status to "unsupported" or "rejected".
 2. If required details (e.g. channel name, user target) are missing, set status to "clarification_required" and ask a concise question.
 3. If the request matches a supported action, set status to "direct_action" or "action_plan".
-4. Output strict JSON conforming to the schema. Do NOT include markdown code fences or extra commentary outside JSON.
+4. If the user is chatting, asking a question, or wants information with NO server action involved, set status to "chat" and put a helpful conversational reply in "message" (plain text, may reference server context; NEVER claim you executed an action).
+5. Output strict JSON conforming to the schema. Do NOT include markdown code fences or extra commentary outside JSON.
 
 Context channels: ${JSON.stringify(context.channels)}
 Context roles: ${JSON.stringify(context.roles)}
+${historyBlock(context.history)}
 `;
 
     try {
-      const endpoint = `${this.baseUrl}/chat/completions`;
-      const startedAt = Date.now();
-      logger.debug(
-        { provider: this.providerName, model: this.model, promptLen: prompt.length, channels: context.channels.length, roles: context.roles.length },
-        'llm request'
-      );
-      const baseBody: Record<string, unknown> = {
-        model: this.model,
-        messages: [
+      const rawContent = await this.complete(
+        [
           { role: 'system', content: systemPrompt },
           { role: 'user', content: `User Request: "${prompt}"` },
         ],
-      };
-
-      const post = (withJsonMode: boolean, timeoutMs = 45000) => {
-        const ctrl = new AbortController();
-        const timer = setTimeout(() => ctrl.abort(new Error('LLM request timed out')), timeoutMs);
-        return fetch(endpoint, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${this.apiKey}`,
-            'HTTP-Referer': 'https://discord-natural-language-agent',
-            'X-Title': 'Discord Natural Language Agent',
-          },
-          body: JSON.stringify(
-            withJsonMode ? { ...baseBody, response_format: { type: 'json_object' } } : baseBody
-          ),
-          signal: ctrl.signal,
-        }).finally(() => clearTimeout(timer));
-      };
-
-      // Some models (esp. free-tier) reject response_format; retry without it.
-      let response = await post(true);
-      if (response.status === 400) {
-        const probe = await response.text();
-        if (/response_format|json_object|json mode/i.test(probe)) {
-          logger.warn({ provider: this.providerName }, 'Model rejected response_format, retrying without json mode');
-          response = await post(false);
-        } else {
-          throw new Error(`HTTP 400 from ${this.providerName}: ${probe.slice(0, 200)}`);
-        }
-      }
-
-      // Free-tier models are often rate-limited (429) or briefly unavailable (502/503); one retry.
-      if ([429, 502, 503].includes(response.status)) {
-        const firstErr = await response.text();
-        logger.warn(
-          { provider: this.providerName, status: response.status },
-          'LLM transient error, retrying once after 2s'
-        );
-        await new Promise((r) => setTimeout(r, 2000));
-        response = await post(false);
-        if (!response.ok) {
-          const retryErr = await response.text();
-          throw new Error(
-            `HTTP ${response.status} from ${this.providerName}: ${(retryErr || firstErr).slice(0, 200)}`
-          );
-        }
-      } else if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`HTTP ${response.status} from ${this.providerName}: ${errorText.slice(0, 200)}`);
-      }
-
-      const data: any = await response.json();
-      const rawContent = data.choices?.[0]?.message?.content || '';
-      logger.debug(
-        { provider: this.providerName, latencyMs: Date.now() - startedAt, contentHead: String(rawContent).slice(0, 500) },
-        'llm response'
+        true,
+        prompt
       );
-      if (!rawContent.trim()) {
-        throw new Error(`Empty completion from ${this.providerName} (model ${this.model})`);
-      }
 
       const parsedJson = JSON.parse(extractJson(rawContent));
       return ParsedIntentSchema.parse(parsedJson);
@@ -135,6 +65,106 @@ Context roles: ${JSON.stringify(context.roles)}
         reason: friendlyReason(this.providerName, error),
       };
     }
+  }
+
+  async chat(prompt: string, context: LLMContext): Promise<string> {
+    const startedAt = Date.now();
+    try {
+      const text = await this.complete(
+        [
+          {
+            role: 'system',
+            content: `You are GPTcord, a friendly and concise Discord server assistant. Answer questions, explain things, and help with server management advice. Use the server context (channels, roles) when relevant. Keep replies under 1500 characters. NEVER claim you executed a server action.\n\nServer channels: ${JSON.stringify(context.channels)}\nServer roles: ${JSON.stringify(context.roles)}\n${historyBlock(context.history)}`,
+          },
+          { role: 'user', content: prompt },
+        ],
+        false,
+        prompt
+      );
+      const reply = text.trim().slice(0, 1900);
+      if (!reply) throw new Error(`Empty completion from ${this.providerName}`);
+      return reply;
+    } catch (error: any) {
+      logger.error(
+        { err: error?.message ?? error, provider: this.providerName, latencyMs: Date.now() - startedAt },
+        'Chat completion failed'
+      );
+      return 'Sorry, I could not think of a reply just now. Try again in a moment.';
+    }
+  }
+
+  /** POST with json-mode fallback + one transient retry. Returns message content. */
+  private async complete(
+    messages: Array<{ role: string; content: string }>,
+    withJsonMode: boolean,
+    promptForLog: string
+  ): Promise<string> {
+    const endpoint = `${this.baseUrl}/chat/completions`;
+    const startedAt = Date.now();
+    logger.debug(
+      { provider: this.providerName, model: this.model, promptLen: promptForLog.length },
+      'llm request'
+    );
+    const baseBody: Record<string, unknown> = { model: this.model, messages };
+
+    const post = (jsonMode: boolean, timeoutMs = 45000) => {
+      const ctrl = new AbortController();
+      const timer = setTimeout(() => ctrl.abort(new Error('LLM request timed out')), timeoutMs);
+      return fetch(endpoint, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${this.apiKey}`,
+          'HTTP-Referer': 'https://discord-natural-language-agent',
+          'X-Title': 'Discord Natural Language Agent',
+        },
+        body: JSON.stringify(jsonMode ? { ...baseBody, response_format: { type: 'json_object' } } : baseBody),
+        signal: ctrl.signal,
+      }).finally(() => clearTimeout(timer));
+    };
+
+    // Some models (esp. free-tier) reject response_format; retry without it.
+    let response = await post(withJsonMode);
+    if (withJsonMode && response.status === 400) {
+      const probe = await response.text();
+      if (/response_format|json_object|json mode/i.test(probe)) {
+        logger.warn({ provider: this.providerName }, 'Model rejected response_format, retrying without json mode');
+        response = await post(false);
+      } else {
+        throw new Error(`HTTP 400 from ${this.providerName}: ${probe.slice(0, 200)}`);
+      }
+    }
+
+    // Free-tier models are often rate-limited (429) or briefly unavailable (502/503); one retry.
+    if ([429, 502, 503].includes(response.status)) {
+      const firstErr = await response.text();
+      logger.warn(
+        { provider: this.providerName, status: response.status },
+        'LLM transient error, retrying once after 2s'
+      );
+      await new Promise((r) => setTimeout(r, 2000));
+      response = await post(false);
+      if (!response.ok) {
+        const retryErr = await response.text();
+        throw new Error(
+          `HTTP ${response.status} from ${this.providerName}: ${(retryErr || firstErr).slice(0, 200)}`
+        );
+      }
+    } else if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`HTTP ${response.status} from ${this.providerName}: ${errorText.slice(0, 200)}`);
+    }
+
+    const data: any = await response.json();
+    const rawContent = data.choices?.[0]?.message?.content || '';
+    logger.debug(
+      { provider: this.providerName, latencyMs: Date.now() - startedAt, contentHead: String(rawContent).slice(0, 500) },
+      'llm response'
+    );
+    if (!String(rawContent).trim()) {
+      throw new Error(`Empty completion from ${this.providerName} (model ${this.model})`);
+    }
+    return String(rawContent);
   }
 }
 
