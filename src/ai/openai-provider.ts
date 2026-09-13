@@ -50,43 +50,128 @@ Context roles: ${JSON.stringify(context.roles)}
 
     try {
       const endpoint = `${this.baseUrl}/chat/completions`;
-      const response = await fetch(endpoint, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${this.apiKey}`,
-          'HTTP-Referer': 'https://discord-natural-language-agent',
-          'X-Title': 'Discord Natural Language Agent',
-        },
-        body: JSON.stringify({
-          model: this.model,
-          messages: [
-            { role: 'system', content: systemPrompt },
-            { role: 'user', content: `User Request: "${prompt}"` },
-          ],
-          response_format: { type: 'json_object' },
-        }),
-      });
+      const baseBody: Record<string, unknown> = {
+        model: this.model,
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: `User Request: "${prompt}"` },
+        ],
+      };
 
-      if (!response.ok) {
+      const post = (withJsonMode: boolean) =>
+        fetch(endpoint, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${this.apiKey}`,
+            'HTTP-Referer': 'https://discord-natural-language-agent',
+            'X-Title': 'Discord Natural Language Agent',
+          },
+          body: JSON.stringify(
+            withJsonMode ? { ...baseBody, response_format: { type: 'json_object' } } : baseBody
+          ),
+        });
+
+      // Some models (esp. free-tier) reject response_format; retry without it.
+      let response = await post(true);
+      if (response.status === 400) {
+        const probe = await response.text();
+        if (/response_format|json_object|json mode/i.test(probe)) {
+          logger.warn({ provider: this.providerName }, 'Model rejected response_format, retrying without json mode');
+          response = await post(false);
+        } else {
+          throw new Error(`HTTP 400 from ${this.providerName}: ${probe.slice(0, 200)}`);
+        }
+      }
+
+      // Free-tier models are often rate-limited (429) or briefly unavailable (502/503); one retry.
+      if ([429, 502, 503].includes(response.status)) {
+        const firstErr = await response.text();
+        logger.warn(
+          { provider: this.providerName, status: response.status },
+          'LLM transient error, retrying once after 2s'
+        );
+        await new Promise((r) => setTimeout(r, 2000));
+        response = await post(false);
+        if (!response.ok) {
+          const retryErr = await response.text();
+          throw new Error(
+            `HTTP ${response.status} from ${this.providerName}: ${(retryErr || firstErr).slice(0, 200)}`
+          );
+        }
+      } else if (!response.ok) {
         const errorText = await response.text();
-        throw new Error(`HTTP ${response.status} from ${this.providerName}: ${errorText}`);
+        throw new Error(`HTTP ${response.status} from ${this.providerName}: ${errorText.slice(0, 200)}`);
       }
 
       const data: any = await response.json();
       const rawContent = data.choices?.[0]?.message?.content || '';
+      if (!rawContent.trim()) {
+        throw new Error(`Empty completion from ${this.providerName} (model ${this.model})`);
+      }
 
-      // Clean markdown code blocks if the model wrapped the JSON
-      const jsonContent = rawContent.replace(/^```(json)?\s*/i, '').replace(/\s*```$/i, '').trim();
-
-      const parsedJson = JSON.parse(jsonContent);
+      const parsedJson = JSON.parse(extractJson(rawContent));
       return ParsedIntentSchema.parse(parsedJson);
     } catch (error: any) {
-      logger.error({ err: error, provider: this.providerName }, `${this.providerName} parsing error or schema mismatch`);
+      logger.error(
+        { err: error?.message ?? error, provider: this.providerName, model: this.model },
+        `${this.providerName} parsing error or schema mismatch`
+      );
       return {
         status: IntentStatus.REJECTED,
-        reason: `Unable to parse natural language request safely with ${this.providerName} model.`,
+        reason: friendlyReason(this.providerName, error),
       };
     }
   }
+}
+
+/** Strip fences, then scan for the first balanced {...} block (models add prose). */
+function extractJson(raw: string): string {
+  const fenced = raw.replace(/^```(json)?\s*/i, '').replace(/\s*```$/i, '').trim();
+  try {
+    JSON.parse(fenced);
+    return fenced;
+  } catch {
+    // fall through to brace scan
+  }
+  const start = fenced.indexOf('{');
+  if (start === -1) return fenced;
+  let depth = 0;
+  let inString = false;
+  let escaped = false;
+  for (let i = start; i < fenced.length; i++) {
+    const ch = fenced[i];
+    if (inString) {
+      if (escaped) escaped = false;
+      else if (ch === '\\') escaped = true;
+      else if (ch === '"') inString = false;
+    } else {
+      if (ch === '"') inString = true;
+      else if (ch === '{') depth++;
+      else if (ch === '}') {
+        depth--;
+        if (depth === 0) return fenced.slice(start, i + 1);
+      }
+    }
+  }
+  return fenced;
+}
+
+/** Short, user-facing reason with no secret material (API error bodies carry none). */
+function friendlyReason(provider: string, error: any): string {
+  const msg = String(error?.message ?? error ?? '');
+  if (/HTTP 429/.test(msg)) {
+    return `${provider} is rate-limited right now (free-tier upstream limit). Wait ~1 min and retry; simple commands (create channel/role, ban, timeout) still work offline.`;
+  }
+  if (/HTTP 401|invalid.*key|unauthorized/i.test(msg)) {
+    return `${provider} rejected the API key (HTTP 401). Check OPENROUTER_API_KEY/OPENAI_API_KEY in .env.`;
+  }
+  if (/HTTP 404|No endpoints|model/i.test(msg) && /404/.test(msg)) {
+    return `${provider} model not found (HTTP 404). Check OPENROUTER_MODEL in .env.`;
+  }
+  if (/Empty completion/.test(msg)) {
+    return `${provider} returned an empty reply. Retry once; if it persists try a different model.`;
+  }
+  const short = msg.replace(/\s+/g, ' ').slice(0, 180);
+  return `Unable to parse request safely with ${provider} model${short ? `: ${short}` : '.'}`;
 }
