@@ -1,8 +1,8 @@
-import { Interaction, ChatInputCommandInteraction, ButtonInteraction } from 'discord.js';
+import { Interaction, ChatInputCommandInteraction, ButtonInteraction, MessageFlags } from 'discord.js';
 import { GuildRepository, ConfirmationRepository, ExecutionRepository, AuditRepository } from '../database/repositories.js';
 import { ActionDispatcher } from '../actions/dispatcher.js';
 import { DiscordUIComponents } from './ui.js';
-import { GeminiLLMProvider } from '../ai/gemini-provider.js';
+import { createLLMProvider } from '../ai/factory.js';
 import { FallbackParser } from '../ai/fallback-parser.js';
 import { IntentStatus } from '../ai/types.js';
 import { InjectionDefense } from '../security/injection-defense.js';
@@ -10,7 +10,7 @@ import { EntityResolver } from '../entities/entity-resolver.js';
 import { logger } from '../utils/logger.js';
 
 export class InteractionHandler {
-  private llmProvider = new GeminiLLMProvider();
+  private llmProvider = createLLMProvider();
 
   async handleInteraction(interaction: Interaction) {
     try {
@@ -20,13 +20,27 @@ export class InteractionHandler {
         await this.handleButtonInteraction(interaction);
       }
     } catch (err: any) {
+      // 10062 = interaction token expired (>3s without ack, or user deleted message).
+      // Retrying a reply only produces a second 10062, so just log and stop.
+      if (err?.code === 10062 || err?.rawError?.code === 10062) {
+        logger.warn('Interaction expired before bot could respond (Unknown interaction). Likely slow ack.');
+        return;
+      }
       logger.error({ err }, 'Error handling interaction');
-      if (interaction.isRepliable()) {
-        const errorUI = DiscordUIComponents.createErrorEmbed('System Error', err.message || 'An unexpected error occurred.');
-        if (interaction.deferred || interaction.replied) {
-          await interaction.followUp({ ...errorUI, ephemeral: true });
+      try {
+        if (interaction.isRepliable()) {
+          const errorUI = DiscordUIComponents.createErrorEmbed('System Error', err.message || 'An unexpected error occurred.');
+          if (interaction.deferred || interaction.replied) {
+            await interaction.followUp({ ...errorUI, flags: MessageFlags.Ephemeral });
+          } else {
+            await interaction.reply({ ...errorUI, flags: MessageFlags.Ephemeral });
+          }
+        }
+      } catch (replyErr: any) {
+        if (replyErr?.code === 10062) {
+          logger.warn('Could not send error message: interaction already expired.');
         } else {
-          await interaction.reply({ ...errorUI, ephemeral: true });
+          logger.error({ err: replyErr }, 'Failed to send error response');
         }
       }
     }
@@ -34,8 +48,21 @@ export class InteractionHandler {
 
   private async handleChatInputCommand(interaction: ChatInputCommandInteraction) {
     if (!interaction.guild || !interaction.member) {
-      await interaction.reply({ content: 'Commands can only be used within a server.', ephemeral: true });
+      await interaction.reply({ content: 'Commands can only be used within a server.', flags: MessageFlags.Ephemeral });
       return;
+    }
+
+    // ACK FIRST: Discord invalidates the interaction token after 3s.
+    // All slow work (member fetch, DB, LLM) must happen after defer.
+    const needsEphemeral = interaction.commandName === 'prompt-audit' || interaction.commandName === 'prompt-help';
+    try {
+      await interaction.deferReply(needsEphemeral ? { flags: MessageFlags.Ephemeral } : undefined);
+    } catch (err: any) {
+      if (err?.code === 10062) {
+        logger.warn('Interaction already expired before defer. Aborting.');
+        return;
+      }
+      throw err;
     }
 
     const guildId = interaction.guildId!;
@@ -47,7 +74,6 @@ export class InteractionHandler {
     const settings = guildDb.settings;
 
     if (interaction.commandName === 'prompt') {
-      await interaction.deferReply();
       const rawPrompt = interaction.options.getString('request', true);
       const prompt = InjectionDefense.sanitizeExternalText(rawPrompt);
 
@@ -135,17 +161,16 @@ export class InteractionHandler {
       }
     } else if (interaction.commandName === 'prompt-audit') {
       const logs = await AuditRepository.getRecentLogs(guildId, 10);
-      const logSummary = logs.map((l) => `• [${l.createdAt.toISOString()}] **${l.action}** by <@${l.userId}>: ${l.status}`).join('\n') || 'No audit logs found.';
-      await interaction.reply({ embeds: [DiscordUIComponents.createSuccessEmbed('Recent Audit Logs', logSummary).embeds[0]], ephemeral: true });
+      const logSummary = logs.map((l: { createdAt: Date; action: string; userId: string; status: string }) => `• [${l.createdAt.toISOString()}] **${l.action}** by <@${l.userId}>: ${l.status}`).join('\n') || 'No audit logs found.';
+      await interaction.editReply({ embeds: [DiscordUIComponents.createSuccessEmbed('Recent Audit Logs', logSummary).embeds[0]] });
     } else if (interaction.commandName === 'prompt-help') {
-      await interaction.reply({
+      await interaction.editReply({
         embeds: [
           DiscordUIComponents.createSuccessEmbed(
             'Natural Language Bot Help',
             'You can describe operations using `/prompt`!\n\n**Supported Actions:**\n• Create Channel: `Create channel welcome`\n• Delete Channel: `Delete #old-chat`\n• Create Role: `Create role Moderators`\n• Assign Role: `Give @Alex role Support`\n• Timeout Member: `Timeout @BadActor for 300 seconds`\n• Ban Member: `Ban @Spammer`'
           ).embeds[0]
         ],
-        ephemeral: true,
       });
     }
   }
