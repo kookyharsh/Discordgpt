@@ -40,9 +40,16 @@ services:
     environment:
       DISCORD_TOKEN: ${DISCORD_TOKEN}
       DISCORD_CLIENT_ID: ${DISCORD_CLIENT_ID}
+      LLM_PROVIDER: ${LLM_PROVIDER:-gemini}
       GEMINI_API_KEY: ${GEMINI_API_KEY}
       GEMINI_MODEL: ${GEMINI_MODEL:-gemini-2.5-flash}
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+      OPENAI_BASE_URL: ${OPENAI_BASE_URL:-https://api.openai.com/v1}
+      OPENAI_MODEL: ${OPENAI_MODEL:-gpt-4o-mini}
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY}
+      OPENROUTER_MODEL: ${OPENROUTER_MODEL:-openai/gpt-4o-mini}
       DATABASE_URL: postgresql://postgres:postgrespassword@postgres:5432/discord_agent?schema=public
+      DIRECT_URL: ${DIRECT_URL:-postgresql://postgres:postgrespassword@postgres:5432/discord_agent?schema=public}
       REDIS_URL: redis://redis:6379
       PORT: 3000
       NODE_ENV: production
