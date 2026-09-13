@@ -185,6 +185,19 @@ export class InteractionHandler {
           const ui = DiscordUIComponents.createErrorEmbed('Action Failed', dispatchRes.error || 'Execution failed.');
           await interaction.editReply(ui);
         }
+      } else {
+        // Catch-all: UNSUPPORTED/REJECTED/CLARIFICATION/DIRECT_ACTION are handled
+        // above, but the model can also return action_plan, confirmation_required,
+        // capability_unavailable, permission_analysis_required, or a direct_action
+        // with no action. Without this the bot sits on "thinking" forever.
+        stage(`unhandled intent (status=${parsed.status}, action=${parsed.action ?? 'none'}) - replying`);
+        const detail =
+          parsed.status === IntentStatus.DIRECT_ACTION
+            ? 'The AI response did not include an executable action. Try rephrasing with a concrete operation.'
+            : `The AI returned status "${parsed.status}", which this bot cannot execute yet. Try a single concrete operation (e.g. "Create channel welcome").`;
+        await interaction.editReply(
+          DiscordUIComponents.createErrorEmbed('Operation Rejected', parsed.reason || detail)
+        );
       }
     } else if (interaction.commandName === 'prompt-audit') {
       const logs = await AuditRepository.getRecentLogs(guildId, 10);
