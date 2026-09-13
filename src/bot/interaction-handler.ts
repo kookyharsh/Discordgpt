@@ -1,0 +1,197 @@
+import { Interaction, ChatInputCommandInteraction, ButtonInteraction } from 'discord.js';
+import { GuildRepository, ConfirmationRepository, ExecutionRepository, AuditRepository } from '../database/repositories.js';
+import { ActionDispatcher } from '../actions/dispatcher.js';
+import { DiscordUIComponents } from './ui.js';
+import { GeminiLLMProvider } from '../ai/gemini-provider.js';
+import { FallbackParser } from '../ai/fallback-parser.js';
+import { IntentStatus } from '../ai/types.js';
+import { InjectionDefense } from '../security/injection-defense.js';
+import { EntityResolver } from '../entities/entity-resolver.js';
+import { logger } from '../utils/logger.js';
+
+export class InteractionHandler {
+  private llmProvider = new GeminiLLMProvider();
+
+  async handleInteraction(interaction: Interaction) {
+    try {
+      if (interaction.isChatInputCommand()) {
+        await this.handleChatInputCommand(interaction);
+      } else if (interaction.isButton()) {
+        await this.handleButtonInteraction(interaction);
+      }
+    } catch (err: any) {
+      logger.error({ err }, 'Error handling interaction');
+      if (interaction.isRepliable()) {
+        const errorUI = DiscordUIComponents.createErrorEmbed('System Error', err.message || 'An unexpected error occurred.');
+        if (interaction.deferred || interaction.replied) {
+          await interaction.followUp({ ...errorUI, ephemeral: true });
+        } else {
+          await interaction.reply({ ...errorUI, ephemeral: true });
+        }
+      }
+    }
+  }
+
+  private async handleChatInputCommand(interaction: ChatInputCommandInteraction) {
+    if (!interaction.guild || !interaction.member) {
+      await interaction.reply({ content: 'Commands can only be used within a server.', ephemeral: true });
+      return;
+    }
+
+    const guildId = interaction.guildId!;
+    const userId = interaction.user.id;
+    const guild = interaction.guild;
+    const member = await guild.members.fetch(userId);
+
+    const guildDb = await GuildRepository.findOrCreate(guildId, guild.name);
+    const settings = guildDb.settings;
+
+    if (interaction.commandName === 'prompt') {
+      await interaction.deferReply();
+      const rawPrompt = interaction.options.getString('request', true);
+      const prompt = InjectionDefense.sanitizeExternalText(rawPrompt);
+
+      if (InjectionDefense.detectPromptInjection(prompt)) {
+        const errUI = DiscordUIComponents.createErrorEmbed(
+          'Security Violation',
+          'Prompt contains suspicious system/injection instructions. Request rejected.'
+        );
+        await interaction.editReply(errUI);
+        return;
+      }
+
+      let parsed = FallbackParser.parse(prompt);
+
+      if (!parsed) {
+        const channels = (await guild.channels.fetch()).map((c) => ({ id: c?.id || '', name: c?.name || '' }));
+        const roles = (await guild.roles.fetch()).map((r) => ({ id: r.id, name: r.name }));
+
+        parsed = await this.llmProvider.parseIntent(prompt, {
+          guildId,
+          channels,
+          roles,
+          allowedActions: settings?.allowedActions.length ? settings.allowedActions : ['create_channel', 'delete_channel', 'create_role', 'assign_role', 'timeout_member', 'ban_member', 'send_message'],
+        });
+      }
+
+      if (parsed.status === IntentStatus.UNSUPPORTED || parsed.status === IntentStatus.REJECTED) {
+        const errUI = DiscordUIComponents.createErrorEmbed('Operation Rejected', parsed.reason || 'This request is unsupported or violates safety guidelines.');
+        await interaction.editReply(errUI);
+        return;
+      }
+
+      if (parsed.status === IntentStatus.CLARIFICATION_REQUIRED) {
+        const errUI = DiscordUIComponents.createErrorEmbed('Clarification Required', parsed.question || 'Please provide more details.');
+        await interaction.editReply(errUI);
+        return;
+      }
+
+      if (parsed.status === IntentStatus.DIRECT_ACTION && parsed.action) {
+        const execution = await ExecutionRepository.createExecution({
+          guildId,
+          userId,
+          prompt,
+          status: 'RUNNING',
+          parsedIntent: parsed,
+        });
+
+        const ctx = {
+          guildId,
+          userId,
+          executionId: execution.id,
+          guild,
+          actorMember: member,
+          settings,
+        };
+
+        let actionType = parsed.action;
+        let params = parsed.parameters || {};
+
+        if (params.channelName) {
+          const res = await EntityResolver.resolveChannel(guild, params.channelName);
+          if (res.resolved) params.channelId = res.resolved.id;
+        }
+
+        const dispatchRes = await ActionDispatcher.dispatch(actionType, params, ctx);
+
+        if (dispatchRes.requiresConfirmation && dispatchRes.confirmationDetails) {
+          const ui = DiscordUIComponents.createConfirmationEmbed(
+            dispatchRes.confirmationDetails.actionType,
+            dispatchRes.confirmationDetails.riskLevel,
+            JSON.stringify(params, null, 2),
+            dispatchRes.confirmationDetails.actionNonce
+          );
+          await interaction.editReply(ui);
+          return;
+        }
+
+        if (dispatchRes.success) {
+          const ui = DiscordUIComponents.createSuccessEmbed('Action Executed', `Successfully performed **${actionType}**.`);
+          await interaction.editReply(ui);
+        } else {
+          const ui = DiscordUIComponents.createErrorEmbed('Action Failed', dispatchRes.error || 'Execution failed.');
+          await interaction.editReply(ui);
+        }
+      }
+    } else if (interaction.commandName === 'prompt-audit') {
+      const logs = await AuditRepository.getRecentLogs(guildId, 10);
+      const logSummary = logs.map((l) => `• [${l.createdAt.toISOString()}] **${l.action}** by <@${l.userId}>: ${l.status}`).join('\n') || 'No audit logs found.';
+      await interaction.reply({ embeds: [DiscordUIComponents.createSuccessEmbed('Recent Audit Logs', logSummary).embeds[0]], ephemeral: true });
+    } else if (interaction.commandName === 'prompt-help') {
+      await interaction.reply({
+        embeds: [
+          DiscordUIComponents.createSuccessEmbed(
+            'Natural Language Bot Help',
+            'You can describe operations using `/prompt`!\n\n**Supported Actions:**\n• Create Channel: `Create channel welcome`\n• Delete Channel: `Delete #old-chat`\n• Create Role: `Create role Moderators`\n• Assign Role: `Give @Alex role Support`\n• Timeout Member: `Timeout @BadActor for 300 seconds`\n• Ban Member: `Ban @Spammer`'
+          ).embeds[0]
+        ],
+        ephemeral: true,
+      });
+    }
+  }
+
+  private async handleButtonInteraction(interaction: ButtonInteraction) {
+    const customId = interaction.customId;
+    if (customId.startsWith('confirm:') || customId.startsWith('cancel:')) {
+      const [action, nonce] = customId.split(':');
+      const guildId = interaction.guildId!;
+      const userId = interaction.user.id;
+
+      if (action === 'cancel') {
+        await interaction.update(DiscordUIComponents.createErrorEmbed('Action Cancelled', 'The confirmation was explicitly cancelled by user.'));
+        return;
+      }
+
+      const confirmation = await ConfirmationRepository.findAndConsume(nonce, guildId, userId, '');
+      if (!confirmation) {
+        await interaction.update(DiscordUIComponents.createErrorEmbed('Invalid or Expired Confirmation', 'This confirmation has expired, was already consumed, or belonged to another user.'));
+        return;
+      }
+
+      const plan = confirmation.actionPlan as any;
+      const guild = interaction.guild!;
+      const member = await guild.members.fetch(userId);
+
+      const ctx = {
+        guildId,
+        userId,
+        executionId: `conf-${Date.now()}`,
+        guild,
+        actorMember: member,
+      };
+
+      const actionDef = (await import('../actions/registry.js')).ActionRegistry.get(plan.type);
+      if (!actionDef) {
+        await interaction.update(DiscordUIComponents.createErrorEmbed('Execution Failed', 'Action definition no longer exists.'));
+        return;
+      }
+
+      try {
+        await actionDef.handler(ctx, plan.input);
+        await interaction.update(DiscordUIComponents.createSuccessEmbed('Action Executed', `Successfully executed confirmed operation **${plan.type}**.`));
+      } catch (err: any) {
+        await interaction.update(DiscordUIComponents.createErrorEmbed('Execution Failed', err.message));
+      }
+    }
+  }
+}

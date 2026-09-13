@@ -1,0 +1,20 @@
+import dotenv from 'dotenv';
+import { z } from 'zod';
+
+dotenv.config();
+
+const envSchema = z.object({
+  DISCORD_TOKEN: z.string().default('mock_discord_token'),
+  DISCORD_CLIENT_ID: z.string().default('mock_discord_client_id'),
+  DISCORD_CLIENT_SECRET: z.string().optional(),
+  GEMINI_API_KEY: z.string().default('mock_gemini_key'),
+  GEMINI_MODEL: z.string().default('gemini-2.5-flash'),
+  DATABASE_URL: z.string().default('postgresql://postgres:postgres@localhost:5432/discord_agent?schema=public'),
+  REDIS_URL: z.string().default('redis://localhost:6379'),
+  PORT: z.coerce.number().default(3000),
+  LOG_LEVEL: z.string().default('info'),
+  NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
+});
+
+export const config = envSchema.parse(process.env);
+export type Config = z.infer<typeof envSchema>;
