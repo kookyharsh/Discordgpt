@@ -9,7 +9,7 @@ const envSchema = z.object({
   DISCORD_CLIENT_SECRET: z.string().optional(),
   LLM_PROVIDER: z.enum(['gemini', 'openai', 'openrouter']).default('gemini'),
   GEMINI_API_KEY: z.string().default('mock_gemini_key'),
-  GEMINI_MODEL: z.string().default('gemini-2.5-flash'),
+  GEMINI_MODEL: z.string().default('gemini-3.6-flash'),
   OPENAI_API_KEY: z.string().optional(),
   OPENAI_BASE_URL: z.string().default('https://api.openai.com/v1'),
   OPENAI_MODEL: z.string().default('gpt-4o-mini'),

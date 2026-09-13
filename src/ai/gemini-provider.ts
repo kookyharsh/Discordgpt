@@ -49,14 +49,28 @@ Context roles: ${JSON.stringify(context.roles)}
       });
 
       const responseText = response.text || '';
+      if (!responseText.trim()) {
+        throw new Error(`Empty completion from Gemini (model ${config.GEMINI_MODEL})`);
+      }
       const parsedJson = JSON.parse(responseText.trim());
       return ParsedIntentSchema.parse(parsedJson);
     } catch (error: any) {
-      logger.error({ err: error }, 'Gemini parsing error or schema mismatch');
-      return {
-        status: IntentStatus.REJECTED,
-        reason: 'Unable to parse natural language request safely with Gemini model.',
-      };
+      const msg = String(error?.message ?? error ?? '');
+      logger.error({ err: msg.slice(0, 300), model: config.GEMINI_MODEL }, 'Gemini parsing error or schema mismatch');
+      let reason: string;
+      if (/404|NOT_FOUND|no longer available/i.test(msg)) {
+        reason = `Gemini model "${config.GEMINI_MODEL}" is unavailable (404 - retired or bad ID). Update GEMINI_MODEL in .env (e.g. gemini-3.6-flash).`;
+      } else if (/401|API_KEY_INVALID|API key|unauthenticated|permission denied|403/i.test(msg)) {
+        reason = 'Gemini rejected the API key. Check GEMINI_API_KEY in .env.';
+      } else if (/429|RESOURCE_EXHAUSTED|quota/i.test(msg)) {
+        reason = 'Gemini is rate-limited/quota-exceeded right now. Wait a bit and retry.';
+      } else if (/Empty completion/.test(msg)) {
+        reason = 'Gemini returned an empty reply. Retry once; if it persists try a different model.';
+      } else {
+        const short = msg.replace(/\s+/g, ' ').slice(0, 180);
+        reason = `Unable to parse request safely with Gemini model${short ? `: ${short}` : '.'}`;
+      }
+      return { status: IntentStatus.REJECTED, reason };
     }
   }
 }
