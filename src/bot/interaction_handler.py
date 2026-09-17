@@ -51,8 +51,14 @@ class BotInteractionHandler:
 
     # ---------- entry ----------
 
-    async def handle_prompt(self, interaction: discord.Interaction, request: str):
-        await interaction.response.defer(thinking=True, ephemeral=False)
+    async def handle_prompt(
+        self, interaction: discord.Interaction, request: str, *, already_deferred: bool = False
+    ):
+        # Modal submits and other re-entrant flows ack first (3s rule) and set
+        # already_deferred: Discord allows exactly ONE initial response per
+        # interaction, so a second defer raises InteractionResponded.
+        if not already_deferred:
+            await interaction.response.defer(thinking=True, ephemeral=False)
 
         guild = interaction.guild
         if guild is None:
@@ -487,7 +493,7 @@ class BotInteractionHandler:
     async def _resume_after_answer(
         self, interaction: discord.Interaction, pending_id: str, answer: str
     ):
-        await interaction.response.defer(ephemeral=False)
+        await interaction.response.defer(thinking=True, ephemeral=False)
         guild = interaction.guild
         if guild is None:
             await interaction.followup.send("Follow-ups only work within a server.", ephemeral=True)
@@ -508,8 +514,9 @@ class BotInteractionHandler:
                 )
                 return
             combined = f"{pending.originalPrompt}\nAdditional detail from user: {answer}"
-            # Re-enter the flow as a fresh prompt turn.
-            await self.handle_prompt(interaction, combined)
+            # Re-enter the flow as a fresh prompt turn. The modal submit was
+            # already deferred above, so skip handle_prompt's own defer.
+            await self.handle_prompt(interaction, combined, already_deferred=True)
 
     async def _handle_confirm(self, interaction: discord.Interaction, nonce: str):
         await interaction.response.defer()
