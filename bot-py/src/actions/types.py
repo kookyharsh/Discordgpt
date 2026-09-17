@@ -3,7 +3,7 @@ from enum import Enum
 from typing import Any
 
 import discord
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 
 class RiskLevel(str, Enum):
@@ -12,12 +12,16 @@ class RiskLevel(str, Enum):
     HIGH = "HIGH"
     CRITICAL = "CRITICAL"
 
+
 class ConfirmationPolicy(str, Enum):
     NOT_REQUIRED = "NOT_REQUIRED"
     REQUIRED = "REQUIRED"
     ALWAYS_CONFIRM = "ALWAYS_CONFIRM"
 
+
 class ExecutionContext(BaseModel):
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+
     guild_id: str
     user_id: str
     execution_id: str
@@ -25,10 +29,10 @@ class ExecutionContext(BaseModel):
     actor_member: Any  # discord.Member
     settings: Any | None = None
 
-    class Config:
-        arbitrary_types_allowed = True
 
 class ActionDefinition(BaseModel):
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+
     type: str
     description: str
     input_schema: type[BaseModel]
@@ -37,6 +41,3 @@ class ActionDefinition(BaseModel):
     risk_level: RiskLevel
     confirmation_policy: ConfirmationPolicy
     handler: Callable[..., Any]
-
-    class Config:
-        arbitrary_types_allowed = True

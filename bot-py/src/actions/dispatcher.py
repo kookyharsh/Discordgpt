@@ -18,6 +18,7 @@ class DispatchResult(BaseModel):
     result: Any | None = None
     error: str | None = None
 
+
 class ActionDispatcher:
     @staticmethod
     async def dispatch(

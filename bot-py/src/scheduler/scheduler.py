@@ -5,6 +5,7 @@ from apscheduler.triggers.cron import CronTrigger
 
 logger = logging.getLogger("discord_agent_scheduler")
 
+
 class AgentScheduler:
     def __init__(self):
         self.scheduler = AsyncIOScheduler()
@@ -19,7 +20,14 @@ class AgentScheduler:
             self.scheduler.shutdown()
             logger.info("APScheduler shut down.")
 
-    def add_cron_job(self, job_id: str, func, cron_expression: str, args: list = None, kwargs: dict = None):
+    def add_cron_job(
+        self,
+        job_id: str,
+        func,
+        cron_expression: str,
+        args: list | None = None,
+        kwargs: dict | None = None,
+    ):
         trigger = CronTrigger.from_crontab(cron_expression)
         self.scheduler.add_job(
             func,

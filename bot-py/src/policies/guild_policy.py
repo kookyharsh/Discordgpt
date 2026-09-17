@@ -4,8 +4,7 @@ from typing import Any
 class GuildPolicyEngine:
     @staticmethod
     def check_action_allowed(
-        action_type: str,
-        settings: Any | None = None
+        action_type: str, settings: Any | None = None
     ) -> tuple[bool, str | None]:
         if not settings:
             return True, None

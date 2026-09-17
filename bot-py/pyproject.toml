@@ -33,6 +33,12 @@ dev = [
 line-length = 100
 target-version = "py312"
 
+[tool.ruff.lint]
+# BLE001/S110: broad guards around Discord REST + DB boundaries are intentional
+# (every failure maps to a user-facing embed, never a crash).
+# UP046: keep Generic[] spelling for 3.11 compat.
+ignore = ["BLE001", "S110", "UP046"]
+
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 testpaths = ["tests"]

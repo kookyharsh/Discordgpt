@@ -10,6 +10,7 @@ from src.permissions.permission_engine import HierarchyEngine
 
 # --- Synthetic Tools for Needle Engine Control ---
 
+
 @needle.tool
 def ask_clarification(question: str) -> str:
     """Ask the user a clarifying question when details or target parameters are ambiguous or missing.
@@ -18,6 +19,7 @@ def ask_clarification(question: str) -> str:
         question: Concise explanation of what detail or choice is missing.
     """
     return f"Clarification requested: {question}"
+
 
 @needle.tool
 def chat_reply(message: str) -> str:
@@ -28,13 +30,16 @@ def chat_reply(message: str) -> str:
     """
     return message
 
+
 # --- 1. Channel Operations ---
+
 
 class CreateChannelInput(BaseModel):
     name: str = Field(..., max_length=100)
     type: Literal["text", "voice", "category", "forum"] = "text"
     category_id: str | None = None
     topic: str | None = Field(None, max_length=1024)
+
 
 async def create_channel_handler(ctx, input_data: CreateChannelInput):
     channel_type = discord.ChannelType.text
@@ -57,6 +62,7 @@ async def create_channel_handler(ctx, input_data: CreateChannelInput):
     )
     return {"channel_id": str(ch.id), "name": ch.name, "type": input_data.type}
 
+
 ActionRegistry.register(
     ActionDefinition(
         type="create_channel",
@@ -70,9 +76,11 @@ ActionRegistry.register(
     )
 )
 
+
 class DeleteChannelInput(BaseModel):
     channel_id: str
     reason: str | None = None
+
 
 async def delete_channel_handler(ctx, input_data: DeleteChannelInput):
     ch = ctx.guild.get_channel(int(input_data.channel_id))
@@ -81,6 +89,7 @@ async def delete_channel_handler(ctx, input_data: DeleteChannelInput):
     name = ch.name
     await ch.delete(reason=input_data.reason)
     return {"channel_id": input_data.channel_id, "name": name, "deleted": True}
+
 
 ActionRegistry.register(
     ActionDefinition(
@@ -95,11 +104,13 @@ ActionRegistry.register(
     )
 )
 
+
 class EditChannelInput(BaseModel):
     channel_id: str
     name: str | None = Field(None, max_length=100)
     topic: str | None = Field(None, max_length=1024)
     nsfw: bool | None = None
+
 
 async def edit_channel_handler(ctx, input_data: EditChannelInput):
     ch = ctx.guild.get_channel(int(input_data.channel_id))
@@ -113,6 +124,7 @@ async def edit_channel_handler(ctx, input_data: EditChannelInput):
 
     await ch.edit(**kwargs)
     return {"channel_id": input_data.channel_id, "updated": True}
+
 
 ActionRegistry.register(
     ActionDefinition(
@@ -129,11 +141,13 @@ ActionRegistry.register(
 
 # --- 2. Role Operations ---
 
+
 class CreateRoleInput(BaseModel):
     name: str = Field(..., max_length=100)
     color: str | None = None
     hoist: bool | None = None
     mentionable: bool | None = None
+
 
 async def create_role_handler(ctx, input_data: CreateRoleInput):
     color = discord.Color.default()
@@ -151,6 +165,7 @@ async def create_role_handler(ctx, input_data: CreateRoleInput):
     )
     return {"role_id": str(role.id), "name": role.name}
 
+
 ActionRegistry.register(
     ActionDefinition(
         type="create_role",
@@ -164,9 +179,11 @@ ActionRegistry.register(
     )
 )
 
+
 class AssignRoleInput(BaseModel):
     member_id: str
     role_id: str
+
 
 async def assign_role_handler(ctx, input_data: AssignRoleInput):
     role = ctx.guild.get_role(int(input_data.role_id))
@@ -184,6 +201,7 @@ async def assign_role_handler(ctx, input_data: AssignRoleInput):
     await member.add_roles(role)
     return {"member_id": str(member.id), "role_id": str(role.id), "assigned": True}
 
+
 ActionRegistry.register(
     ActionDefinition(
         type="assign_role",
@@ -199,10 +217,12 @@ ActionRegistry.register(
 
 # --- 3. Member Operations ---
 
+
 class TimeoutMemberInput(BaseModel):
     member_id: str
     duration_seconds: int = Field(..., ge=1, le=2419200)
     reason: str | None = None
+
 
 async def timeout_member_handler(ctx, input_data: TimeoutMemberInput):
     member = ctx.guild.get_member(int(input_data.member_id))
@@ -214,9 +234,15 @@ async def timeout_member_handler(ctx, input_data: TimeoutMemberInput):
         raise ValueError(reason)
 
     import datetime
+
     delta = datetime.timedelta(seconds=input_data.duration_seconds)
     await member.timeout(delta, reason=input_data.reason)
-    return {"member_id": str(member.id), "duration_seconds": input_data.duration_seconds, "timed_out": True}
+    return {
+        "member_id": str(member.id),
+        "duration_seconds": input_data.duration_seconds,
+        "timed_out": True,
+    }
+
 
 ActionRegistry.register(
     ActionDefinition(
@@ -231,10 +257,12 @@ ActionRegistry.register(
     )
 )
 
+
 class BanMemberInput(BaseModel):
     member_id: str
     reason: str | None = None
     delete_message_seconds: int | None = Field(None, ge=0, le=604800)
+
 
 async def ban_member_handler(ctx, input_data: BanMemberInput):
     member = ctx.guild.get_member(int(input_data.member_id))
@@ -249,6 +277,7 @@ async def ban_member_handler(ctx, input_data: BanMemberInput):
         delete_message_seconds=input_data.delete_message_seconds or 0,
     )
     return {"member_id": input_data.member_id, "banned": True}
+
 
 ActionRegistry.register(
     ActionDefinition(
@@ -265,14 +294,17 @@ ActionRegistry.register(
 
 # --- 4. Message Operations ---
 
+
 class SendMessageInput(BaseModel):
     channel_id: str
     content: str = Field(..., min_length=1, max_length=2000)
+
 
 async def send_message_handler(ctx, input_data: SendMessageInput):
     ch = ctx.guild.get_channel(int(input_data.channel_id))
     msg = await ch.send(content=input_data.content)
     return {"message_id": str(msg.id), "channel_id": str(ch.id), "sent": True}
+
 
 ActionRegistry.register(
     ActionDefinition(
@@ -287,17 +319,21 @@ ActionRegistry.register(
     )
 )
 
+
 # Export Tool Definitions to tools/discord_tools.json
 def export_tools_json(filepath: str = "tools/discord_tools.json"):
     import json
+
     schemas = []
     for act in ActionRegistry.get_all():
-        schemas.append({
-            "name": act.type,
-            "description": act.description,
-            "parameters": act.input_schema.model_json_schema(),
-            "risk_level": act.risk_level.value,
-            "confirmation_policy": act.confirmation_policy.value,
-        })
+        schemas.append(
+            {
+                "name": act.type,
+                "description": act.description,
+                "parameters": act.input_schema.model_json_schema(),
+                "risk_level": act.risk_level.value,
+                "confirmation_policy": act.confirmation_policy.value,
+            }
+        )
     with open(filepath, "w") as f:
         json.dump(schemas, f, indent=2)

@@ -7,6 +7,10 @@ class TenantGuard:
             )
 
     @staticmethod
-    def validate_entity_guild(entity_guild_id: str, current_guild_id: str, entity_name: str) -> None:
+    def validate_entity_guild(
+        entity_guild_id: str, current_guild_id: str, entity_name: str
+    ) -> None:
         if entity_guild_id != current_guild_id:
-            raise ValueError(f"Tenant Isolation Violation: {entity_name} belongs to a different guild.")
+            raise ValueError(
+                f"Tenant Isolation Violation: {entity_name} belongs to a different guild."
+            )

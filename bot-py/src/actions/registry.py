@@ -1,9 +1,10 @@
+from typing import ClassVar
 
 from src.actions.types import ActionDefinition
 
 
 class ActionRegistry:
-    _actions: dict[str, ActionDefinition] = {}
+    _actions: ClassVar[dict[str, ActionDefinition]] = {}
 
     @classmethod
     def register(cls, action: ActionDefinition) -> None:

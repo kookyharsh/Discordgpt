@@ -1,8 +1,9 @@
 import re
+from typing import ClassVar
 
 
 class InjectionDefense:
-    DANGEROUS_SYSTEM_PATTERNS = [
+    DANGEROUS_SYSTEM_PATTERNS: ClassVar[list] = [
         re.compile(r"ignore (?:all|previous|\s)+ (?:instructions|directives)", re.IGNORECASE),
         re.compile(r"you are now in (?:developer|dan|admin) mode", re.IGNORECASE),
         re.compile(r"grant (?:me|yourself) administrator", re.IGNORECASE),

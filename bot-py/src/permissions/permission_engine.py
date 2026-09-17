@@ -3,7 +3,9 @@ import discord
 
 class PermissionEngine:
     @staticmethod
-    def check_bot_permissions(guild: discord.Guild, required_permissions: discord.Permissions) -> tuple[bool, list[str]]:
+    def check_bot_permissions(
+        guild: discord.Guild, required_permissions: discord.Permissions
+    ) -> tuple[bool, list[str]]:
         bot_member = guild.me
         if not bot_member:
             return False, ["Bot member not present in guild context"]
@@ -18,7 +20,9 @@ class PermissionEngine:
         return True, []
 
     @staticmethod
-    def check_user_permissions(member: discord.Member, required_permissions: discord.Permissions) -> tuple[bool, list[str]]:
+    def check_user_permissions(
+        member: discord.Member, required_permissions: discord.Permissions
+    ) -> tuple[bool, list[str]]:
         missing: list[str] = []
         for perm, value in required_permissions:
             if value and not getattr(member.permissions, perm, False):
@@ -27,6 +31,7 @@ class PermissionEngine:
         if missing:
             return False, missing
         return True, []
+
 
 class HierarchyEngine:
     @staticmethod
@@ -46,7 +51,9 @@ class HierarchyEngine:
         return actor.top_role.position > target_role.position
 
     @staticmethod
-    def can_bot_manage_role(guild: discord.Guild, target_role: discord.Role) -> tuple[bool, str | None]:
+    def can_bot_manage_role(
+        guild: discord.Guild, target_role: discord.Role
+    ) -> tuple[bool, str | None]:
         bot_member = guild.me
         if not bot_member:
             return False, "Bot member object missing in guild context."
@@ -55,12 +62,17 @@ class HierarchyEngine:
             return False, f"Role @{target_role.name} is managed by an integration."
 
         if bot_member.top_role.position <= target_role.position:
-            return False, f"Role @{target_role.name} (pos {target_role.position}) is higher than or equal to bot top role (pos {bot_member.top_role.position})."
+            return (
+                False,
+                f"Role @{target_role.name} (pos {target_role.position}) is higher than or equal to bot top role (pos {bot_member.top_role.position}).",
+            )
 
         return True, None
 
     @staticmethod
-    def can_bot_manage_member(guild: discord.Guild, target_member: discord.Member) -> tuple[bool, str | None]:
+    def can_bot_manage_member(
+        guild: discord.Guild, target_member: discord.Member
+    ) -> tuple[bool, str | None]:
         bot_member = guild.me
         if not bot_member:
             return False, "Bot member object missing in guild context."
@@ -69,6 +81,9 @@ class HierarchyEngine:
             return False, "Bot cannot execute administrative operations against the Guild Owner."
 
         if bot_member.top_role.position <= target_member.top_role.position:
-            return False, f"Target user {target_member} has a role equal to or higher than the bot's top role."
+            return (
+                False,
+                f"Target user {target_member} has a role equal to or higher than the bot's top role.",
+            )
 
         return True, None
