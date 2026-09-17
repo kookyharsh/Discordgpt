@@ -9,10 +9,13 @@ class PermissionEngine:
         bot_member = guild.me
         if not bot_member:
             return False, ["Bot member not present in guild context"]
+        bot_perms = getattr(bot_member, "guild_permissions", None)
+        if bot_perms is None:
+            return False, ["Could not resolve bot permissions in this guild"]
 
         missing: list[str] = []
         for perm, value in required_permissions:
-            if value and not getattr(bot_member.permissions, perm, False):
+            if value and not getattr(bot_perms, perm, False):
                 missing.append(perm.upper())
 
         if missing:
@@ -23,9 +26,13 @@ class PermissionEngine:
     def check_user_permissions(
         member: discord.Member, required_permissions: discord.Permissions
     ) -> tuple[bool, list[str]]:
+        user_perms = getattr(member, "guild_permissions", None)
+        if user_perms is None:
+            return False, ["Could not resolve your guild permissions (member lookup failed)"]
+
         missing: list[str] = []
         for perm, value in required_permissions:
-            if value and not getattr(member.permissions, perm, False):
+            if value and not getattr(user_perms, perm, False):
                 missing.append(perm.upper())
 
         if missing:
