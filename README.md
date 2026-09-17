@@ -1,32 +1,30 @@
-# Discord Natural Language Agent
+# Discord Natural Language Agent (Python)
 
-A production-grade, multi-tenant Discord management bot that allows users to describe desired Discord operations in natural language.
+Production-grade, multi-tenant Discord management bot with native Needle tool-calling. Users describe operations in natural language (`/prompt`); the bot translates them into whitelisted, permission-checked Discord actions.
 
-## Key Principles & Invariants
+> The bot lives in [`bot-py/`](bot-py/). This repo is Python-only; the old TypeScript implementation was removed (see git history).
 
-1. **No Code Execution**: The bot NEVER executes arbitrary code (`eval`, `Function()`, `vm`, `child_process`, or shell commands).
-2. **LLM as Planner Only**: The LLM is strictly an intent parser and planner. The application enforces authorization and execution deterministically.
-3. **Whitelisted Operations**: Every supported action is explicitly registered in the Action Registry with strict Zod schemas.
-4. **Tenant Isolation**: Every database record, audit log, and execution context is strictly scoped by `guildId`.
-5. **Confirmation & Safety**: Dangerous or destructive operations (e.g. banning members, deleting channels) require explicit user confirmation using single-use, time-bound Discord UI buttons backed by cryptographic plan hashing.
+## Quick start
 
-## Quick Start (Docker)
-
-```bash
-# 1. Copy environment example
-cp .env.example .env
-
-# 2. Run with Docker Compose
+```powershell
+cd bot-py
+Copy-Item .env.example .env
+# edit .env: set DISCORD_TOKEN
 docker-compose up -d --build
 ```
 
-## Documentation Index
+In Discord: `/prompt request:create channel welcome`
 
-- [ARCHITECTURE.md](./ARCHITECTURE.md) - System architecture and flow
-- [SECURITY.md](./SECURITY.md) - Security model and threat mitigation
-- [PERMISSIONS.md](./PERMISSIONS.md) - Permission engine & Discord role hierarchy
-- [ACTIONS.md](./ACTIONS.md) - Supported Discord action catalog
-- [SCHEDULER.md](./SCHEDULER.md) - BullMQ job scheduler & safety
-- [DATABASE.md](./DATABASE.md) - PostgreSQL schema and Prisma setup
-- [DEPLOYMENT.md](./DEPLOYMENT.md) - Production deployment guidelines
-- [CONTRIBUTING.md](./CONTRIBUTING.md) - Guide for adding new actions and features
+## Layout
+
+- `bot-py/` — the bot (`discord.py`, `cactus-needle`, `SQLAlchemy`, `APScheduler`, `FastAPI`)
+- `bot-py/README.md` — full run/test docs
+- `docs/TOOL_CATALOG.md` — whitelisted action catalog (31 tools)
+- `tools/discord_tools.json` — generated Needle schemas
+- `needle/` — vendored Needle reference (untracked)
+
+## Safety invariants
+
+1. No code execution — Needle is planner-only.
+2. Every action whitelisted in `ActionRegistry` with strict Pydantic schemas.
+3. Tenant isolation by `guildId`, confirmation gate for HIGH/CRITICAL ops, full audit logging.
