@@ -18,7 +18,7 @@ async def ready(response: Response):
             await session.execute(text("SELECT 1"))
         return {"status": "ready", "database": "connected"}
     except Exception as e:
-        response.status_code = status.HTTP_533_SERVICE_UNAVAILABLE
+        response.status_code = status.HTTP_503_SERVICE_UNAVAILABLE
         return {"status": "unready", "database": str(e)}
 
 

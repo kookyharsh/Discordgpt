@@ -2,6 +2,10 @@ import asyncio
 import logging
 import os
 
+from dotenv import load_dotenv
+
+load_dotenv()
+
 import discord
 import uvicorn
 from discord.ext import commands
@@ -9,7 +13,7 @@ from discord.ext import commands
 from src.api.server import app as fastapi_app
 from src.bot.interaction_handler import BotInteractionHandler
 
-logging.basicConfig(level=os.getenv("LOG_LEVEL", "INFO"))
+logging.basicConfig(level=getattr(logging, os.getenv("LOG_LEVEL", "INFO").upper(), logging.INFO))
 logger = logging.getLogger("discord_agent_main")
 
 intents = discord.Intents.none()
