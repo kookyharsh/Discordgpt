@@ -75,11 +75,13 @@ class BotInteractionHandler:
             return
 
         async with AsyncSessionLocal() as session:
-            db_guild = await GuildRepository.find_or_create(session, guild_id, guild.name)
-            settings = await GuildRepository.get_settings(session, db_guild.id)
+            # Upsert side effect only: the canonical tenant key is the
+            # Discord snowflake (guild_id), matching the legacy FK targets.
+            await GuildRepository.find_or_create(session, guild_id, guild.name)
+            settings = await GuildRepository.get_settings(session, guild_id)
             channel_id = str(getattr(interaction, "channel_id", None) or guild_id)
             convo = await ConversationRepository.get_or_create(
-                session, db_guild.id, user_id, channel_id
+                session, guild_id, user_id, channel_id
             )
             history = await ConversationRepository.history_lines(session, convo.id)
 
@@ -131,7 +133,7 @@ class BotInteractionHandler:
                 question = str(parsed.get("question") or "Please provide more details.")[:500]
                 pending = await PendingQuestionRepository.create(
                     session,
-                    guild_id=db_guild.id,
+                    guild_id=guild_id,
                     user_id=user_id,
                     question=question,
                     original_prompt=prompt,
@@ -175,7 +177,7 @@ class BotInteractionHandler:
                     interaction,
                     session,
                     guild,
-                    db_guild.id,
+                    guild_id,
                     user_id,
                     prompt,
                     convo.id,
@@ -198,7 +200,7 @@ class BotInteractionHandler:
                 interaction,
                 session,
                 guild,
-                db_guild.id,
+                guild_id,
                 user_id,
                 prompt,
                 convo.id,
@@ -215,7 +217,7 @@ class BotInteractionHandler:
         interaction,
         session,
         guild,
-        db_guild_id,
+        tenant_id,
         user_id,
         prompt,
         convo_id,
@@ -236,7 +238,7 @@ class BotInteractionHandler:
                     interaction,
                     session,
                     guild,
-                    db_guild_id,
+                    tenant_id,
                     user_id,
                     prompt,
                     convo_id,
@@ -265,7 +267,7 @@ class BotInteractionHandler:
                     interaction,
                     session,
                     guild,
-                    db_guild_id,
+                    tenant_id,
                     user_id,
                     prompt,
                     convo_id,
@@ -290,7 +292,7 @@ class BotInteractionHandler:
 
         execution = await ExecutionRepository.create_execution(
             session=session,
-            guild_id=db_guild_id,
+            guild_id=tenant_id,
             user_id=user_id,
             prompt=prompt,
             status="RUNNING",
@@ -303,7 +305,7 @@ class BotInteractionHandler:
             except Exception:
                 pass
         ctx = ExecutionContext(
-            guild_id=db_guild_id,
+            guild_id=tenant_id,
             user_id=user_id,
             execution_id=execution.id,
             guild=guild,
@@ -356,11 +358,11 @@ class BotInteractionHandler:
             )
 
     async def _run_plan(
-        self, interaction, session, guild, db_guild_id, user_id, prompt, convo_id, steps, settings
+        self, interaction, session, guild, tenant_id, user_id, prompt, convo_id, steps, settings
     ):
         execution = await ExecutionRepository.create_execution(
             session=session,
-            guild_id=db_guild_id,
+            guild_id=tenant_id,
             user_id=user_id,
             prompt=prompt,
             status="RUNNING",
@@ -373,7 +375,7 @@ class BotInteractionHandler:
             except Exception:
                 pass
         ctx = ExecutionContext(
-            guild_id=db_guild_id,
+            guild_id=tenant_id,
             user_id=user_id,
             execution_id=execution.id,
             guild=guild,
@@ -425,7 +427,7 @@ class BotInteractionHandler:
         interaction,
         session,
         guild,
-        db_guild_id,
+        tenant_id,
         user_id,
         prompt,
         convo_id,
@@ -439,7 +441,7 @@ class BotInteractionHandler:
     ):
         pending = await PendingChoiceRepository.create(
             session,
-            guild_id=db_guild_id,
+            guild_id=tenant_id,
             user_id=user_id,
             action=action_type,
             params=params,
@@ -454,9 +456,7 @@ class BotInteractionHandler:
 
         async def _picked(itx: discord.Interaction, chosen: str):
             async with AsyncSessionLocal() as s2:
-                claimed = await PendingChoiceRepository.consume(
-                    s2, pending.id, db_guild_id, user_id
-                )
+                claimed = await PendingChoiceRepository.consume(s2, pending.id, tenant_id, user_id)
                 if claimed is None:
                     await itx.response.send_message(
                         "Selection expired. Run /prompt again.", ephemeral=True
@@ -471,7 +471,7 @@ class BotInteractionHandler:
                     itx,
                     s2,
                     guild,
-                    db_guild_id,
+                    tenant_id,
                     user_id,
                     prompt,
                     convo_id,
@@ -495,9 +495,9 @@ class BotInteractionHandler:
         guild_id = str(guild.id)
         user_id = str(interaction.user.id)
         async with AsyncSessionLocal() as session:
-            db_guild = await GuildRepository.find_or_create(session, guild_id, guild.name)
+            await GuildRepository.find_or_create(session, guild_id, guild.name)
             pending = await PendingQuestionRepository.consume(
-                session, pending_id, db_guild.id, user_id
+                session, pending_id, guild_id, user_id
             )
             if pending is None:
                 await interaction.followup.send(
@@ -522,9 +522,9 @@ class BotInteractionHandler:
         guild_id = str(guild.id)
         user_id = str(interaction.user.id)
         async with AsyncSessionLocal() as session:
-            db_guild = await GuildRepository.find_or_create(session, guild_id, guild.name)
+            await GuildRepository.find_or_create(session, guild_id, guild.name)
             conf = await ConfirmationRepository.find_and_consume(
-                session, nonce=nonce, guild_id=db_guild.id, user_id=user_id
+                session, nonce=nonce, guild_id=guild_id, user_id=user_id
             )
             if conf is None:
                 await interaction.followup.send(
@@ -539,9 +539,9 @@ class BotInteractionHandler:
                 actor = interaction.user
                 if not isinstance(actor, discord.Member):
                     actor = await guild.fetch_member(interaction.user.id)
-                settings = await GuildRepository.get_settings(session, db_guild.id)
+                settings = await GuildRepository.get_settings(session, guild_id)
                 ctx = ExecutionContext(
-                    guild_id=db_guild.id,
+                    guild_id=guild_id,
                     user_id=user_id,
                     execution_id=f"conf-{nonce}",
                     guild=guild,

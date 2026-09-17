@@ -28,7 +28,7 @@ class ActionDispatcher:
         ctx: ExecutionContext,
     ) -> DispatchResult:
         # 1. Tenant Isolation
-        TenantGuard.validate_guild_boundary(ctx.guild_id, ctx.guild.id)
+        TenantGuard.validate_guild_boundary(ctx.guild_id, str(ctx.guild.id))
 
         # 2. Whitelist Check
         action_def = ActionRegistry.get(action_type)

@@ -52,10 +52,9 @@ async def prompt_audit_slash(interaction: discord.Interaction):
     from src.database.session import AsyncSessionLocal
 
     async with AsyncSessionLocal() as session:
-        db_guild = await GuildRepository.find_or_create(
-            session, str(interaction.guild.id), interaction.guild.name
-        )
-        logs = await AuditRepository.get_recent_logs(session, db_guild.id, 10)
+        guild_key = str(interaction.guild.id)
+        await GuildRepository.find_or_create(session, guild_key, interaction.guild.name)
+        logs = await AuditRepository.get_recent_logs(session, guild_key, 10)
     lines = [
         f"• [{l.createdAt.isoformat()}] **{l.action}** by <@{l.userId}>: {l.status}" for l in logs
     ]

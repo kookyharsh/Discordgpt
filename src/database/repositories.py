@@ -32,7 +32,7 @@ class GuildRepository:
             session.add(guild)
             await session.flush()
 
-            settings = GuildSettings(guildId=guild.id, timezone="UTC", enabled=True)
+            settings = GuildSettings(guildId=guild.discordGuildId, timezone="UTC", enabled=True)
             session.add(settings)
             await session.commit()
             await session.refresh(guild)

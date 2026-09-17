@@ -67,7 +67,7 @@ class GuildSettings(Base):
 
     id: Mapped[str] = mapped_column(String, primary_key=True, default=generate_uuid)
     guildId: Mapped[str] = mapped_column(
-        String, ForeignKey("Guild.id", ondelete="CASCADE"), unique=True, nullable=False
+        String, ForeignKey("Guild.discordGuildId", ondelete="CASCADE"), unique=True, nullable=False
     )
     enabled: Mapped[bool] = mapped_column(Boolean, default=True)
     timezone: Mapped[str] = mapped_column(String, default="UTC")
@@ -102,7 +102,7 @@ class Conversation(Base):
 
     id: Mapped[str] = mapped_column(String, primary_key=True, default=generate_uuid)
     guildId: Mapped[str] = mapped_column(
-        String, ForeignKey("Guild.id", ondelete="CASCADE"), nullable=False
+        String, ForeignKey("Guild.discordGuildId", ondelete="CASCADE"), nullable=False
     )
     userId: Mapped[str] = mapped_column(String, nullable=False)
     channelId: Mapped[str] = mapped_column(String, nullable=False)
@@ -139,7 +139,7 @@ class ActionExecution(Base):
 
     id: Mapped[str] = mapped_column(String, primary_key=True, default=generate_uuid)
     guildId: Mapped[str] = mapped_column(
-        String, ForeignKey("Guild.id", ondelete="CASCADE"), nullable=False
+        String, ForeignKey("Guild.discordGuildId", ondelete="CASCADE"), nullable=False
     )
     userId: Mapped[str] = mapped_column(String, nullable=False)
     prompt: Mapped[str] = mapped_column(Text, nullable=False)
@@ -183,7 +183,7 @@ class ScheduledAction(Base):
 
     id: Mapped[str] = mapped_column(String, primary_key=True, default=generate_uuid)
     guildId: Mapped[str] = mapped_column(
-        String, ForeignKey("Guild.id", ondelete="CASCADE"), nullable=False
+        String, ForeignKey("Guild.discordGuildId", ondelete="CASCADE"), nullable=False
     )
     createdByUserId: Mapped[str] = mapped_column(String, nullable=False)
     actionPlan: Mapped[Any] = mapped_column(JSONB, nullable=False)
@@ -228,7 +228,7 @@ class GeneratedCommand(Base):
 
     id: Mapped[str] = mapped_column(String, primary_key=True, default=generate_uuid)
     guildId: Mapped[str] = mapped_column(
-        String, ForeignKey("Guild.id", ondelete="CASCADE"), nullable=False
+        String, ForeignKey("Guild.discordGuildId", ondelete="CASCADE"), nullable=False
     )
     createdByUserId: Mapped[str] = mapped_column(String, nullable=False)
     name: Mapped[str] = mapped_column(String, nullable=False)
@@ -252,7 +252,7 @@ class AuditLog(Base):
 
     id: Mapped[str] = mapped_column(String, primary_key=True, default=generate_uuid)
     guildId: Mapped[str] = mapped_column(
-        String, ForeignKey("Guild.id", ondelete="CASCADE"), nullable=False
+        String, ForeignKey("Guild.discordGuildId", ondelete="CASCADE"), nullable=False
     )
     userId: Mapped[str] = mapped_column(String, nullable=False)
     executionId: Mapped[str | None] = mapped_column(
@@ -280,7 +280,7 @@ class ConfirmationRequest(Base):
 
     id: Mapped[str] = mapped_column(String, primary_key=True, default=generate_uuid)
     guildId: Mapped[str] = mapped_column(
-        String, ForeignKey("Guild.id", ondelete="CASCADE"), nullable=False
+        String, ForeignKey("Guild.discordGuildId", ondelete="CASCADE"), nullable=False
     )
     userId: Mapped[str] = mapped_column(String, nullable=False)
     planHash: Mapped[str] = mapped_column(String, nullable=False)
@@ -304,7 +304,7 @@ class PendingQuestion(Base):
 
     id: Mapped[str] = mapped_column(String, primary_key=True, default=generate_uuid)
     guildId: Mapped[str] = mapped_column(
-        String, ForeignKey("Guild.id", ondelete="CASCADE"), nullable=False
+        String, ForeignKey("Guild.discordGuildId", ondelete="CASCADE"), nullable=False
     )
     userId: Mapped[str] = mapped_column(String, nullable=False)
     channelId: Mapped[str | None] = mapped_column(String, nullable=True)
@@ -322,7 +322,7 @@ class PendingChoice(Base):
 
     id: Mapped[str] = mapped_column(String, primary_key=True, default=generate_uuid)
     guildId: Mapped[str] = mapped_column(
-        String, ForeignKey("Guild.id", ondelete="CASCADE"), nullable=False
+        String, ForeignKey("Guild.discordGuildId", ondelete="CASCADE"), nullable=False
     )
     userId: Mapped[str] = mapped_column(String, nullable=False)
     action: Mapped[str] = mapped_column(String, nullable=False)
