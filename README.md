@@ -1,30 +1,47 @@
-# Discord Natural Language Agent (Python)
+# Discord Agent (Python - discord.py & Cactus-Needle)
 
-Production-grade, multi-tenant Discord management bot with native Needle tool-calling. Users describe operations in natural language (`/prompt`); the bot translates them into whitelisted, permission-checked Discord actions.
+A production-grade, multi-tenant Discord management agent written in Python using `discord.py@2.x` and `cactus-needle` for native LLM tool-calling.
 
-> The bot lives in [`bot-py/`](bot-py/). This repo is Python-only; the old TypeScript implementation was removed (see git history).
+## Architecture & Features
 
-## Quick start
+- **Native Needle Tool-Calling**: Every Discord operation is registered as a `@needle.tool` function with Pydantic type signatures and bounds.
+- **SQLAlchemy + AsyncPG**: Direct 1:1 mapping onto existing PostgreSQL schemas with `guild_id` tenant isolation on every repository operation.
+- **Strict Execution Dispatcher**: Deterministic Python execution engine enforcing tenant isolation, role hierarchy, bot permissions, and server policy before executing mutations.
+- **Single-Use UI Confirmations**: High/Critical risk operations require single-use Discord UI component confirmation (Buttons & Select Menus) backed by SHA-256 plan hashes expiring in 5 minutes.
+- **FastAPI Endpoint**: Exposes `/health`, `/ready`, and `/metrics` for system monitoring.
+- **APScheduler**: Asynchronous background task scheduler re-evaluating full permission & policy stacks prior to execution.
 
-```powershell
-cd bot-py
-Copy-Item .env.example .env
+## Quick Start (Docker)
+
+```bash
+# Copy environment settings
+cp .env.example .env
 # edit .env: set DISCORD_TOKEN
+
+# Run stack with docker-compose
 docker-compose up -d --build
 ```
 
 In Discord: `/prompt request:create channel welcome`
 
+## Local Dev (uv)
+
+```bash
+uv venv
+uv sync --extra dev
+cp .env.example .env
+uv run python -m src.main
+```
+
+## Running Tests
+
+```bash
+uv run pytest tests -q
+```
+
 ## Layout
 
-- `bot-py/` — the bot (`discord.py`, `cactus-needle`, `SQLAlchemy`, `APScheduler`, `FastAPI`)
-- `bot-py/README.md` — full run/test docs
+- `src/` — bot source (`bot/`, `actions/`, `ai/`, `database/`, `scheduler/`, `security/`)
+- `tests/` — pytest suite
 - `docs/TOOL_CATALOG.md` — whitelisted action catalog (31 tools)
 - `tools/discord_tools.json` — generated Needle schemas
-- `needle/` — vendored Needle reference (untracked)
-
-## Safety invariants
-
-1. No code execution — Needle is planner-only.
-2. Every action whitelisted in `ActionRegistry` with strict Pydantic schemas.
-3. Tenant isolation by `guildId`, confirmation gate for HIGH/CRITICAL ops, full audit logging.

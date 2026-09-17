@@ -1,9 +1,9 @@
 from typing import Literal
 
 import discord
-import needle
 from pydantic import BaseModel, Field
 
+import needle
 from src.actions.registry import ActionRegistry
 from src.actions.types import ActionDefinition, ConfirmationPolicy, RiskLevel
 from src.permissions.permission_engine import HierarchyEngine
