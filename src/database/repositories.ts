@@ -3,30 +3,23 @@ import { Prisma } from '@prisma/client';
 
 export class GuildRepository {
   static async findOrCreate(discordGuildId: string, name?: string) {
-    // Upsert: two concurrent /prompt commands otherwise race findUnique+create (P2002).
-    const guild = await prisma.guild.upsert({
+    let guild = await prisma.guild.findUnique({
       where: { discordGuildId },
-      update: name ? { name } : {},
-      create: {
-        discordGuildId,
-        name,
-        settings: {
-          create: {
-            timezone: 'UTC',
-            enabled: true,
-          },
-        },
-      },
       include: { settings: true },
     });
 
-    // Backfill settings for guilds created before the nested-create (or partial writes).
-    if (!guild.settings) {
-      await prisma.guildSettings.create({
-        data: { guildId: discordGuildId, timezone: 'UTC', enabled: true },
-      });
-      return prisma.guild.findUniqueOrThrow({
-        where: { discordGuildId },
+    if (!guild) {
+      guild = await prisma.guild.create({
+        data: {
+          discordGuildId,
+          name,
+          settings: {
+            create: {
+              timezone: 'UTC',
+              enabled: true,
+            },
+          },
+        },
         include: { settings: true },
       });
     }
@@ -210,132 +203,9 @@ export class ScheduledActionRepository {
     });
   }
 
-  static async findById(id: string, guildId: string) {
-    return prisma.scheduledAction.findFirst({
-      where: { id, guildId },
-    });
-  }
-
   static async delete(id: string, guildId: string) {
     return prisma.scheduledAction.deleteMany({
       where: { id, guildId },
     });
-  }
-}
-
-const HISTORY_LIMIT = 10;
-const HISTORY_CHARS = 300;
-
-export class ConversationRepository {
-  /** Latest conversation for this user+channel, or a fresh one. Never throws. */
-  static async getOrCreate(guildId: string, userId: string, channelId: string) {
-    const existing = await prisma.conversation.findFirst({
-      where: { guildId, userId, channelId },
-      orderBy: { updatedAt: 'desc' },
-    });
-    if (existing) return existing;
-    return prisma.conversation.create({
-      data: { guildId, userId, channelId },
-    });
-  }
-
-  static async append(conversationId: string, role: 'user' | 'assistant', content: string) {
-    await prisma.conversationMessage.create({
-      data: { conversationId, role, content: content.slice(0, 2000) },
-    });
-    await prisma.conversation.update({
-      where: { id: conversationId },
-      data: { updatedAt: new Date() },
-    });
-  }
-
-  /** Oldest-first "role: text" lines for LLM context. Never throws. */
-  static async historyLines(conversationId: string, limit = HISTORY_LIMIT): Promise<string[]> {
-    const rows = await prisma.conversationMessage.findMany({
-      where: { conversationId },
-      orderBy: { createdAt: 'desc' },
-      take: limit,
-    });
-    return rows
-      .reverse()
-      .map((m) => `${m.role}: ${m.content.slice(0, HISTORY_CHARS)}`);
-  }
-}
-
-export class PendingQuestionRepository {
-  static async create(data: {
-    guildId: string;
-    userId: string;
-    channelId?: string;
-    question: string;
-    originalPrompt: string;
-    expiresInMs?: number;
-  }) {
-    return prisma.pendingQuestion.create({
-      data: {
-        guildId: data.guildId,
-        userId: data.userId,
-        channelId: data.channelId,
-        question: data.question.slice(0, 1000),
-        originalPrompt: data.originalPrompt.slice(0, 2000),
-        expiresAt: new Date(Date.now() + (data.expiresInMs ?? 15 * 60 * 1000)),
-      },
-    });
-  }
-
-  /** Single-use consume: returns the record only if live, owned, and unanswered. */
-  static async consume(id: string, guildId: string, userId: string) {
-    const pending = await prisma.pendingQuestion.findFirst({
-      where: { id, guildId, userId, answered: false, expiresAt: { gt: new Date() } },
-    });
-    if (!pending) return null;
-    await prisma.pendingQuestion.update({
-      where: { id: pending.id },
-      data: { answered: true },
-    });
-    return pending;
-  }
-}
-
-export interface ChoiceOption {
-  id: string;
-  name: string;
-}
-
-export class PendingChoiceRepository {
-  static async create(data: {
-    guildId: string;
-    userId: string;
-    action: string;
-    params: Record<string, any>;
-    field: 'channelId' | 'roleId';
-    options: ChoiceOption[];
-    prompt: string;
-    expiresInMs?: number;
-  }) {
-    return prisma.pendingChoice.create({
-      data: {
-        guildId: data.guildId,
-        userId: data.userId,
-        action: data.action,
-        params: data.params as any,
-        field: data.field,
-        options: data.options as any,
-        prompt: data.prompt.slice(0, 2000),
-        expiresAt: new Date(Date.now() + (data.expiresInMs ?? 5 * 60 * 1000)),
-      },
-    });
-  }
-
-  static async consume(id: string, guildId: string, userId: string) {
-    const pending = await prisma.pendingChoice.findFirst({
-      where: { id, guildId, userId, answered: false, expiresAt: { gt: new Date() } },
-    });
-    if (!pending) return null;
-    await prisma.pendingChoice.update({
-      where: { id: pending.id },
-      data: { answered: true },
-    });
-    return pending;
   }
 }

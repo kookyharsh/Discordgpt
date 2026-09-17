@@ -77,18 +77,40 @@ export class EntityResolver {
   }
 
   static async resolveMember(guild: Guild, query: string): Promise<ResolutionResult<GuildMember>> {
-    // ID or mention lookup via single REST fetch. A full guild.members.fetch()
-    // requires the privileged Server Members intent and is too slow for the
-    // 3s interaction window, so username search is intentionally unsupported.
-    const mentionMatch = query.match(/^<@!?(\d+)>$/);
-    const candidate = (mentionMatch ? mentionMatch[1] : query.replace(/^@/, '').trim()).trim();
-    if (/^\d{15,25}$/.test(candidate)) {
-      try {
-        const member = await guild.members.fetch(candidate);
-        if (member) return { resolved: member, ambiguous: false, notFound: false };
-      } catch {
-        // fall through to notFound
+    const cleaned = query.replace(/^@/, '').trim().toLowerCase();
+    const members = await guild.members.fetch();
+
+    const matches: GuildMember[] = [];
+    for (const [id, member] of members) {
+      if (
+        member.id === cleaned ||
+        member.user.username.toLowerCase() === cleaned ||
+        member.displayName.toLowerCase() === cleaned
+      ) {
+        matches.push(member);
       }
+    }
+
+    if (matches.length === 1) {
+      return { resolved: matches[0], ambiguous: false, notFound: false };
+    } else if (matches.length > 1) {
+      return { matches, ambiguous: true, notFound: false };
+    }
+
+    const partialMatches: GuildMember[] = [];
+    for (const [id, member] of members) {
+      if (
+        member.user.username.toLowerCase().includes(cleaned) ||
+        member.displayName.toLowerCase().includes(cleaned)
+      ) {
+        partialMatches.push(member);
+      }
+    }
+
+    if (partialMatches.length === 1) {
+      return { resolved: partialMatches[0], ambiguous: false, notFound: false };
+    } else if (partialMatches.length > 1) {
+      return { matches: partialMatches, ambiguous: true, notFound: false };
     }
 
     return { ambiguous: false, notFound: true };

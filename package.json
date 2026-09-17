@@ -9,7 +9,7 @@
     "dev": "tsx watch src/index.ts",
     "test": "vitest run",
     "test:watch": "vitest",
-    "lint": "eslint .",
+    "lint": "eslint . --ext .ts",
     "format": "prettier --write \"src/**/*.ts\"",
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate dev",

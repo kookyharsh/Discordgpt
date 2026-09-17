@@ -18,36 +18,12 @@ export const promptAuditCommand = new SlashCommandBuilder()
 export const promptSchedulesCommand = new SlashCommandBuilder()
   .setName('prompt-schedules')
   .setDescription('List and manage active scheduled bot actions')
-  .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild)
-  .addStringOption((option) =>
-    option
-      .setName('cancel_id')
-      .setDescription('Cancel a scheduled job by its ID (see the list first)')
-      .setRequired(false)
-  );
+  .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild);
 
 export const promptSettingsCommand = new SlashCommandBuilder()
   .setName('prompt-settings')
   .setDescription('Configure server policy settings for natural language agent')
-  .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
-  .addStringOption((option) =>
-    option
-      .setName('key')
-      .setDescription('Setting to change')
-      .setRequired(false)
-      .addChoices(
-        { name: 'enabled', value: 'enabled' },
-        { name: 'timezone', value: 'timezone' },
-        { name: 'allowed_actions', value: 'allowed_actions' },
-        { name: 'disabled_actions', value: 'disabled_actions' }
-      )
-  )
-  .addStringOption((option) =>
-    option
-      .setName('value')
-      .setDescription('New value (e.g. false, America/New_York, create_channel,send_message)')
-      .setRequired(false)
-  );
+  .setDefaultMemberPermissions(PermissionFlagsBits.Administrator);
 
 export const promptHelpCommand = new SlashCommandBuilder()
   .setName('prompt-help')

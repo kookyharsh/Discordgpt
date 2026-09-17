@@ -35,13 +35,6 @@ export class ActionScheduler {
 
         const { guildId, createdByUserId, actionPlan, scheduledActionId } = job.data;
 
-        // Guard: schedule may have been cancelled/disabled after the job was queued.
-        const record = await ScheduledActionRepository.findById(scheduledActionId, guildId);
-        if (!record || !record.enabled) {
-          logger.info({ jobId: job.id, scheduledActionId }, 'Skipping scheduled job (cancelled or disabled)');
-          return;
-        }
-
         const guild = await discordClient.guilds.fetch(guildId);
         if (!guild) {
           throw new Error(`Guild ${guildId} not found during scheduled job execution.`);

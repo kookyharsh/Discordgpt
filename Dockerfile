@@ -9,8 +9,6 @@ RUN pnpm install --frozen-lockfile || pnpm install
 
 COPY tsconfig.json ./
 COPY prisma ./prisma/
-# Prisma getConfig requires DIRECT_URL to exist even for generate (no connection made).
-ENV DIRECT_URL=postgresql://postgres:postgrespassword@postgres:5432/discord_agent?schema=public
 RUN pnpm run db:generate || true
 
 COPY src ./src

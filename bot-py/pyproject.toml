@@ -1,0 +1,39 @@
+[project]
+name = "discord-agent-py"
+version = "1.0.0"
+description = "Production-grade multi-tenant Discord management agent with native Needle tool-calling"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "discord.py>=2.3.2",
+    "cactus-needle>=2.0.15",
+    "sqlalchemy[asyncio]>=2.0.30",
+    "asyncpg>=0.29.0",
+    "alembic>=1.13.1",
+    "psycopg2-binary>=2.9.9",
+    "redis>=5.0.4",
+    "apscheduler>=3.10.4",
+    "fastapi>=0.111.0",
+    "uvicorn>=0.30.1",
+    "pydantic>=2.7.1",
+    "pydantic-settings>=2.2.1",
+    "python-dotenv>=1.0.1",
+    "cron-descriptor>=1.4.3",
+    "python-dateutil>=2.9.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.2.0",
+    "pytest-asyncio>=0.23.6",
+    "ruff>=0.4.4",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+pythonpath = ["."]

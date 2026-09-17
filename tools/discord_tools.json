@@ -1,0 +1,335 @@
+[
+  {
+    "name": "create_channel",
+    "description": "Creates a new text, voice, category, or forum channel.",
+    "parameters": {
+      "properties": {
+        "name": {
+          "maxLength": 100,
+          "title": "Name",
+          "type": "string"
+        },
+        "type": {
+          "default": "text",
+          "enum": [
+            "text",
+            "voice",
+            "category",
+            "forum"
+          ],
+          "title": "Type",
+          "type": "string"
+        },
+        "category_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Category Id"
+        },
+        "topic": {
+          "anyOf": [
+            {
+              "maxLength": 1024,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Topic"
+        }
+      },
+      "required": [
+        "name"
+      ],
+      "title": "CreateChannelInput",
+      "type": "object"
+    },
+    "risk_level": "LOW",
+    "confirmation_policy": "NOT_REQUIRED"
+  },
+  {
+    "name": "delete_channel",
+    "description": "Deletes a channel from the guild.",
+    "parameters": {
+      "properties": {
+        "channel_id": {
+          "title": "Channel Id",
+          "type": "string"
+        },
+        "reason": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Reason"
+        }
+      },
+      "required": [
+        "channel_id"
+      ],
+      "title": "DeleteChannelInput",
+      "type": "object"
+    },
+    "risk_level": "HIGH",
+    "confirmation_policy": "REQUIRED"
+  },
+  {
+    "name": "edit_channel",
+    "description": "Edits properties of a channel such as name, topic, or nsfw flag.",
+    "parameters": {
+      "properties": {
+        "channel_id": {
+          "title": "Channel Id",
+          "type": "string"
+        },
+        "name": {
+          "anyOf": [
+            {
+              "maxLength": 100,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Name"
+        },
+        "topic": {
+          "anyOf": [
+            {
+              "maxLength": 1024,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Topic"
+        },
+        "nsfw": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Nsfw"
+        }
+      },
+      "required": [
+        "channel_id"
+      ],
+      "title": "EditChannelInput",
+      "type": "object"
+    },
+    "risk_level": "MEDIUM",
+    "confirmation_policy": "NOT_REQUIRED"
+  },
+  {
+    "name": "create_role",
+    "description": "Creates a new role in the server.",
+    "parameters": {
+      "properties": {
+        "name": {
+          "maxLength": 100,
+          "title": "Name",
+          "type": "string"
+        },
+        "color": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Color"
+        },
+        "hoist": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Hoist"
+        },
+        "mentionable": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Mentionable"
+        }
+      },
+      "required": [
+        "name"
+      ],
+      "title": "CreateRoleInput",
+      "type": "object"
+    },
+    "risk_level": "MEDIUM",
+    "confirmation_policy": "NOT_REQUIRED"
+  },
+  {
+    "name": "assign_role",
+    "description": "Assigns a role to a member.",
+    "parameters": {
+      "properties": {
+        "member_id": {
+          "title": "Member Id",
+          "type": "string"
+        },
+        "role_id": {
+          "title": "Role Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "member_id",
+        "role_id"
+      ],
+      "title": "AssignRoleInput",
+      "type": "object"
+    },
+    "risk_level": "MEDIUM",
+    "confirmation_policy": "NOT_REQUIRED"
+  },
+  {
+    "name": "timeout_member",
+    "description": "Times out a member for a specified duration in seconds.",
+    "parameters": {
+      "properties": {
+        "member_id": {
+          "title": "Member Id",
+          "type": "string"
+        },
+        "duration_seconds": {
+          "maximum": 2419200,
+          "minimum": 1,
+          "title": "Duration Seconds",
+          "type": "integer"
+        },
+        "reason": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Reason"
+        }
+      },
+      "required": [
+        "member_id",
+        "duration_seconds"
+      ],
+      "title": "TimeoutMemberInput",
+      "type": "object"
+    },
+    "risk_level": "MEDIUM",
+    "confirmation_policy": "REQUIRED"
+  },
+  {
+    "name": "ban_member",
+    "description": "Bans a member from the guild.",
+    "parameters": {
+      "properties": {
+        "member_id": {
+          "title": "Member Id",
+          "type": "string"
+        },
+        "reason": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Reason"
+        },
+        "delete_message_seconds": {
+          "anyOf": [
+            {
+              "maximum": 604800,
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Delete Message Seconds"
+        }
+      },
+      "required": [
+        "member_id"
+      ],
+      "title": "BanMemberInput",
+      "type": "object"
+    },
+    "risk_level": "HIGH",
+    "confirmation_policy": "REQUIRED"
+  },
+  {
+    "name": "send_message",
+    "description": "Sends a text message to a channel.",
+    "parameters": {
+      "properties": {
+        "channel_id": {
+          "title": "Channel Id",
+          "type": "string"
+        },
+        "content": {
+          "maxLength": 2000,
+          "minLength": 1,
+          "title": "Content",
+          "type": "string"
+        }
+      },
+      "required": [
+        "channel_id",
+        "content"
+      ],
+      "title": "SendMessageInput",
+      "type": "object"
+    },
+    "risk_level": "LOW",
+    "confirmation_policy": "NOT_REQUIRED"
+  }
+]

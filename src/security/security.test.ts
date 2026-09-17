@@ -16,7 +16,7 @@ describe('Security & Invariants Unit Tests', () => {
     expect(() => TenantGuard.validateGuildBoundary('guild-1', 'guild-1')).not.toThrow();
   });
 
-  it('enforces role hierarchy rules', async () => {
+  it('enforces role hierarchy rules', () => {
     const mockBotRole = { position: 5 };
     const mockUserHighRole = { position: 10, name: 'Admin', managed: false };
 
@@ -28,7 +28,7 @@ describe('Security & Invariants Unit Tests', () => {
       },
     } as any;
 
-    const result = await HierarchyEngine.canBotManageRole(mockGuild, mockUserHighRole as any);
+    const result = HierarchyEngine.canBotManageRole(mockGuild, mockUserHighRole as any);
     expect(result.allowed).toBe(false);
     expect(result.reason).toContain('higher than or equal to bot');
   });
