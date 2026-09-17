@@ -143,9 +143,12 @@ class DiscordUIComponents:
         )
 
     @staticmethod
-    def create_error_embed(title: str, reason: str) -> discord.Embed:
+    def create_error_embed(title: str, reason: str, hint: str | None = None) -> discord.Embed:
+        description = f"**Reason:** {reason}\n\n*No changes were made.*"
+        if hint:
+            description += f"\n\n**Try this:** {hint}"
         return discord.Embed(
             title=f"❌ {title}",
-            description=f"**Reason:** {reason}\n\n*No changes were made.*",
+            description=description,
             color=discord.Color.red(),
         )

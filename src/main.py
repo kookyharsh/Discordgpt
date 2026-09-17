@@ -1,5 +1,4 @@
 import asyncio
-import logging
 import os
 
 from dotenv import load_dotenv
@@ -10,14 +9,27 @@ import discord
 import uvicorn
 from discord.ext import commands
 
+from src.ai.needle_agent import check_artifacts_stale
 from src.api.server import app as fastapi_app
 from src.bot.interaction_handler import BotInteractionHandler
+from src.bot.logger import (
+    log_api_only_mode,
+    log_bot_ready,
+    log_startup_checklist,
+    log_sync_failed,
+    log_sync_result,
+    print_startup_banner,
+    setup_colored_logging,
+)
 
-logging.basicConfig(level=getattr(logging, os.getenv("LOG_LEVEL", "INFO").upper(), logging.INFO))
-logger = logging.getLogger("discord_agent_main")
+logger = setup_colored_logging("discord_agent_main")
 
 intents = discord.Intents.none()
 intents.guilds = True
+# Members intent powers username/nickname search (resolve_member) and the
+# member cache. ALSO toggle "Server Members Intent" in the Discord dev portal
+# (Bot tab); without it, name search sees almost nobody and only @mentions/IDs work.
+intents.members = True
 
 bot = commands.Bot(command_prefix="!", intents=intents)
 handler = BotInteractionHandler(bot)
@@ -27,10 +39,25 @@ handler = BotInteractionHandler(bot)
 async def on_ready():
     logger.info("Bot connected as %s (ID: %s)", bot.user, getattr(bot.user, "id", "?"))
     try:
+        guild_count = len(bot.guilds) if hasattr(bot, "guilds") else None
+    except Exception:
+        guild_count = None
+    log_bot_ready(bot.user, guild_count)
+    try:
+        from src.scheduler.scheduler import restore_all
+
+        restored = await restore_all()
+        if restored:
+            logger.info("Restored %d scheduled action(s) from the database.", restored)
+    except Exception as e:
+        logger.warning("Schedule restore failed: %s", e)
+    try:
         synced = await bot.tree.sync()
         logger.info("Synced %d slash commands.", len(synced))
+        log_sync_result(len(synced))
     except Exception as e:
-        logger.error("Failed to sync commands: %s", e)
+        logger.exception("Failed to sync commands")
+        log_sync_failed(e)
 
 
 @bot.tree.command(
@@ -91,20 +118,46 @@ async def prompt_help_slash(interaction: discord.Interaction):
 
 
 async def main():
-    # Side-effect import: registers all @needle.tool actions into ActionRegistry.
-    import src.actions.advanced_tools
-    import src.actions.extra_tools
-    import src.actions.needle_tools  # noqa: F401
+    # Side-effect imports: each category module registers its actions.
+    import src.actions.automod
+    import src.actions.channels
+    import src.actions.emojis
+    import src.actions.events
+    import src.actions.guild
+    import src.actions.invites
+    import src.actions.members
+    import src.actions.messages
+    import src.actions.roles
+    import src.actions.schedules
+    import src.actions.system
+    import src.actions.threads
+    import src.actions.webhooks  # noqa: F401
+
+    check_artifacts_stale()
+    print_startup_banner()
+    log_startup_checklist(logger=logger)
+
+    from src.ai.needle_agent import prewarm_engine
+    from src.scheduler.scheduler import get_scheduler, set_bot
+
+    get_scheduler().start()
+    set_bot(bot)
+    asyncio.create_task(prewarm_engine())
 
     token = os.getenv("DISCORD_TOKEN", "mock_discord_token")
     config = uvicorn.Config(
-        fastapi_app, host="0.0.0.0", port=int(os.getenv("PORT", "8000")), log_level="info"
+        fastapi_app,
+        host="0.0.0.0",
+        port=int(os.getenv("PORT", "8000")),
+        log_level=os.getenv("LOG_LEVEL", "info").lower(),
     )
     server = uvicorn.Server(config)
     if token == "mock_discord_token":
+        log_api_only_mode()
         logger.warning("No valid DISCORD_TOKEN provided. Running in API-only / test mode.")
         await server.serve()
     else:
+        logger.info("Starting Discord gateway + FastAPI server...")
         asyncio.create_task(bot.start(token))
         await server.serve()
 

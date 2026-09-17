@@ -12,6 +12,19 @@ MAX_PLAN_STEPS = 5
 PLAN_TYPE = "__plan__"
 
 
+def _dead_step(results: list[dict[str, Any]], step: dict[str, Any], action: str, error: str):
+    results.append(
+        {
+            "step_id": step.get("id", str(len(results))),
+            "action": action,
+            "ok": False,
+            "result": None,
+            "error": error,
+        }
+    )
+    return {"completed": True, "results": results}
+
+
 def summarize_plan(results: list[dict[str, Any]]) -> str:
     if not results:
         return "No steps were executed."
@@ -49,11 +62,32 @@ async def execute_action_plan(
             res = await EntityResolver.resolve_channel(ctx.guild, str(channel_name))
             if res.resolved is not None:
                 params["channel_id"] = str(res.resolved.id)
+            else:
+                return _dead_step(results, step, action, f"Channel '{channel_name}' not found.")
         role_name = params.get("roleName") or params.get("role_name")
         if role_name and not params.get("role_id"):
             res = await EntityResolver.resolve_role(ctx.guild, str(role_name))
             if res.resolved is not None:
                 params["role_id"] = str(res.resolved.id)
+            else:
+                return _dead_step(results, step, action, f"Role '{role_name}' not found.")
+        member_name = params.get("member_name")
+        member_id = params.get("member_id")
+        if (member_name or (member_id and not str(member_id).strip().isdigit())) and not str(
+            member_id or ""
+        ).startswith("<@"):
+            res = await EntityResolver.resolve_member(ctx.guild, str(member_name or member_id))
+            if res.resolved is not None:
+                params["member_id"] = str(res.resolved.id)
+                params.pop("member_name", None)
+            else:
+                return _dead_step(
+                    results,
+                    step,
+                    action,
+                    f"Member '{member_name or member_id}' not found or ambiguous. "
+                    "@mention the user instead.",
+                )
 
         dispatch_res = await ActionDispatcher.dispatch(session, action, params, ctx)
 

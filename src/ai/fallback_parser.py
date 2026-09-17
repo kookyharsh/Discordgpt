@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import re
-from typing import Any
+from typing import Any, ClassVar
 
 
 class FallbackParser:
@@ -11,10 +11,130 @@ class FallbackParser:
     (channel_name/role_name) where resolution is still needed, and
     *id-based* keys (member_id/role_id/channel_id) for mentions.
     Returns None on miss so Needle can take over.
+
+    Scheduling: "make a channel in 10 seconds" / "every day at 9am, send ..."
+    emits {"status": "schedule_request", "action": ..., "parameters": ...,
+    "delay_seconds": N} or {"cron": "...", "schedule_human": "..."}.
     """
+
+    _WEEKDAYS: ClassVar[dict[str, int]] = {
+        "monday": 1,
+        "tuesday": 2,
+        "wednesday": 3,
+        "thursday": 4,
+        "friday": 5,
+        "saturday": 6,
+        "sunday": 0,
+    }
+
+    @staticmethod
+    def _parse_time(hour: str, minute: str | None, meridiem: str | None) -> tuple[int, int] | None:
+        h, m = int(hour), int(minute or 0)
+        mer = (meridiem or "").lower()
+        if mer == "pm" and h < 12:
+            h += 12
+        if mer == "am" and h == 12:
+            h = 0
+        if not (0 <= h <= 23 and 0 <= m <= 59):
+            return None
+        return h, m
+
+    @staticmethod
+    def extract_schedule(prompt: str) -> tuple[dict[str, Any] | None, str]:
+        """Detect a delay/cron clause. Returns (spec, cleaned_prompt).
+
+        spec is None when no scheduling language is found, else e.g.
+        {"delay_seconds": 10, "schedule_human": "in 10 seconds"} or
+        {"cron": "30 9 * * *", "schedule_human": "every day at 9:30 AM"}.
+        """
+        raw = prompt.strip()
+
+        m = re.search(
+            r"\b(?:in|after)\s+(\d+)\s*(seconds?|secs?|s|minutes?|mins?|m|hours?|hrs?|h|days?|d)\b",
+            raw,
+            re.IGNORECASE,
+        )
+        if m:
+            amount = int(m.group(1))
+            unit = m.group(2).lower()
+            if unit.startswith("s"):
+                delay = amount
+            elif unit.startswith("m"):
+                # bare "m" could be ambiguous, but in an in/after clause it means minutes
+                delay = amount * 60
+            elif unit.startswith("h"):
+                delay = amount * 3600
+            else:
+                delay = amount * 86400
+            cleaned = (raw[: m.start()] + raw[m.end() :]).strip(" ,.")
+            return {"delay_seconds": delay, "schedule_human": m.group(0)}, cleaned or raw
+
+        m = re.search(
+            r"\bevery\s+(monday|tuesday|wednesday|thursday|friday|saturday|sunday)"
+            r"\s+at\s+(\d{1,2})(?::(\d{2}))?\s*(am|pm)?\b",
+            raw,
+            re.IGNORECASE,
+        )
+        if m:
+            parsed = FallbackParser._parse_time(m.group(2), m.group(3), m.group(4))
+            if parsed:
+                h, mi = parsed
+                dow = FallbackParser._WEEKDAYS[m.group(1).lower()]
+                cleaned = (raw[: m.start()] + raw[m.end() :]).strip(" ,.")
+                return {
+                    "cron": f"{mi} {h} * * {dow}",
+                    "schedule_human": m.group(0),
+                }, cleaned or raw
+
+        m = re.search(
+            r"\bevery\s+day\s+at\s+(\d{1,2})(?::(\d{2}))?\s*(am|pm)?\b", raw, re.IGNORECASE
+        )
+        if m:
+            parsed = FallbackParser._parse_time(m.group(1), m.group(2), m.group(3))
+            if parsed:
+                h, mi = parsed
+                cleaned = (raw[: m.start()] + raw[m.end() :]).strip(" ,.")
+                return {
+                    "cron": f"{mi} {h} * * *",
+                    "schedule_human": m.group(0),
+                }, cleaned or raw
+
+        m = re.search(r"\bevery\s+(\d+)\s*(minutes?|mins?|hours?|hrs?)\b", raw, re.IGNORECASE)
+        if m:
+            amount = int(m.group(1))
+            if m.group(2).lower().startswith("m"):
+                if amount < 1 or amount > 59 or 60 % amount != 0:
+                    return None, raw
+                cron = f"*/{amount} * * * *"
+            else:
+                if amount < 1 or amount > 24 or 24 % amount != 0:
+                    return None, raw
+                cron = f"0 */{amount} * * *"
+            cleaned = (raw[: m.start()] + raw[m.end() :]).strip(" ,.")
+            return {"cron": cron, "schedule_human": m.group(0)}, cleaned or raw
+
+        m = re.search(r"\bevery\s+hour\b", raw, re.IGNORECASE)
+        if m:
+            cleaned = (raw[: m.start()] + raw[m.end() :]).strip(" ,.")
+            return {"cron": "0 * * * *", "schedule_human": m.group(0)}, cleaned or raw
+
+        return None, raw
 
     @staticmethod
     def parse(prompt: str) -> dict[str, Any] | None:
+        sched, cleaned = FallbackParser.extract_schedule(prompt)
+        inner = FallbackParser._parse_direct(cleaned)
+        if sched is not None:
+            if inner is None:
+                # Scheduling language found but the inner action isn't one the
+                # offline parser knows - let Needle try (the handler re-checks
+                # the schedule clause for Needle results too).
+                return None
+            return {"status": "schedule_request", **sched, **inner}
+        return inner
+
+    @staticmethod
+    def _parse_direct(prompt: str) -> dict[str, Any] | None:
         normalized = prompt.strip().lower()
         raw = prompt.strip()
 

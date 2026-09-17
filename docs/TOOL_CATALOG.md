@@ -6,7 +6,7 @@ Whitelisted Discord tools available through native Needle tool-calling and the d
 
 | Tool Name | Description | Arguments & Constraints | Permissions Required | Risk Level | Confirmation | discord.py Method |
 |---|---|---|---|---|---|---|
-| `create_channel` | Creates a new text, voice, category, or forum channel. | `name` (str, max 100), `type` (text/voice/category/forum), `category_id` (opt), `topic` (max 1024) | `manage_channels` | LOW | NOT_REQUIRED | `guild.create_channel()` |
+| `create_channel` | Creates a new text, voice, category, or forum channel. | `name` (str, max 100), `type` (text/voice/category/forum), `category_id` (opt), `topic` (max 1024) | `manage_channels` | LOW | NOT_REQUIRED | `guild.create_text_channel()` / `create_voice_channel()` / `create_category()` / `create_forum()` |
 | `delete_channel` | Deletes a channel from the server. | `channel_id`, `reason` (opt) | `manage_channels` | HIGH | REQUIRED | `channel.delete()` |
 | `edit_channel` | Edits channel properties (name, topic, nsfw). | `channel_id`, `name`/`topic`/`nsfw` (opt) | `manage_channels` | MEDIUM | NOT_REQUIRED | `channel.edit()` |
 | `rename_channel` | Renames a channel. | `channel_id`, `new_name` (1-100) | `manage_channels` | LOW | NOT_REQUIRED | `channel.edit(name=)` |
@@ -43,6 +43,14 @@ Whitelisted Discord tools available through native Needle tool-calling and the d
 | `mute_member` | Server-mutes/unmutes in voice. | `member_id`, `muted` (bool) | `mute_members` | LOW | NOT_REQUIRED | `member.edit(mute=)` |
 | `deafen_member` | Server-deafens/undeafens in voice. | `member_id`, `deafened` (bool) | `deafen_members` | LOW | NOT_REQUIRED | `member.edit(deafen=)` |
 
+## Schedules (delayed + cron, DB-backed)
+
+| Tool Name | Description | Arguments & Constraints | Permissions Required | Risk Level | Confirmation | Notes |
+|---|---|---|---|---|---|---|
+| `schedule_action` | Schedules an action once after a delay or on cron. | `action`, `parameters`, `delay_seconds` (5-2592000) XOR `cron` (crontab), `timezone` (IANA, default UTC) | inner action's perms re-checked now + at run | LOW | NOT_REQUIRED (dangerous actions blocked) | survives restarts via `ScheduledAction` table + APScheduler restore |
+| `list_schedules` | Lists active schedules for this server. | — | none | LOW | NOT_REQUIRED | cron shown in plain words |
+| `cancel_schedule` | Cancels a schedule by ID. | `schedule_id` | none | LOW | NOT_REQUIRED | disables row + removes live job |
+
 ## Planned (not yet implemented)
 
-Scheduled events (`create_event`/`edit_event`/`delete_event`), emoji/sticker CRUD, webhooks (`create_webhook`/`send_via_webhook`), `schedule_action`/`cancel_schedule`, `save_command`/`run_saved_command`, audit lookup tool, polls (native `discord.Poll`).
+Scheduled Discord-native events edits, sticker CRUD, `send_via_webhook`, `save_command`/`run_saved_command`, audit lookup tool, polls (native `discord.Poll`).

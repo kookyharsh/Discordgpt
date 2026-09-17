@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import logging
 import os
 from pathlib import Path
@@ -8,9 +9,15 @@ from typing import Any
 logger = logging.getLogger("discord_agent.needle")
 
 CONFIDENCE_THRESHOLD = float(os.getenv("NEEDLE_CONFIDENCE_THRESHOLD", "0.5"))
-TOOL_INDEX_PATH = os.getenv(
-    "NEEDLE_TOOL_INDEX", str(Path(__file__).resolve().parents[2] / "tools.idx")
-)
+ENGINE_TIMEOUT_SECONDS = float(os.getenv("NEEDLE_ENGINE_TIMEOUT", "90"))
+# The native engine binds one active session per process and its calls block
+# for seconds (init is cheap; first complete() per binding is not). Never run
+# it on the event loop: one worker + single-flight lock keeps the Discord
+# gateway heartbeat alive and serializes native access.
+_AGENT_LOCK = asyncio.Lock()
+TOOLS_DIR = Path(__file__).resolve().parents[2] / "tools"
+CATALOG_JSON = os.getenv("NEEDLE_TOOLS_JSON", str(TOOLS_DIR / "discord_tools.json"))
+CATALOG_HASH_FILE = TOOLS_DIR / ".catalog_hash"
 
 _SYNTHETIC_SCHEMAS: list[dict[str, Any]] = [
     {
@@ -72,6 +79,81 @@ def build_tool_schemas(allowed_actions: list[str] | None = None) -> list[dict[st
     return schemas + _SYNTHETIC_SCHEMAS
 
 
+def catalog_fingerprint() -> str:
+    """Stable hash of the live tool catalog (names + descriptions + schemas).
+
+    The engine caches retrieval embeddings per index file, so the index path
+    embeds this fingerprint: any registry change (new tool, new wording)
+    automatically busts the cache instead of serving stale embeddings.
+    """
+    import hashlib
+    import json
+
+    from src.actions.registry import ActionRegistry
+
+    entries = []
+    for act in sorted(ActionRegistry.get_all(), key=lambda a: a.type):
+        try:
+            schema = act.input_schema.model_json_schema()
+        except Exception:
+            schema = {}
+        entries.append({"name": act.type, "description": act.description, "parameters": schema})
+    return hashlib.sha1(json.dumps(entries, sort_keys=True).encode()).hexdigest()[:12]
+
+
+def resolve_index_path() -> str:
+    """Index file for the current catalog; the engine creates it on demand.
+
+    Honors NEEDLE_TOOL_INDEX as an explicit override, otherwise embeds the
+    catalog fingerprint so registry changes bust the embedding cache.
+    """
+    override = os.getenv("NEEDLE_TOOL_INDEX")
+    if override:
+        return override
+    TOOLS_DIR.mkdir(parents=True, exist_ok=True)
+    return str(TOOLS_DIR / f"tools.{catalog_fingerprint()}.idx")
+
+
+def refresh_artifacts() -> dict[str, Any]:
+    """Regenerate discord_tools.json + fingerprint; returns status info.
+
+    Safe to run at startup: only writes when the catalog changed.
+    """
+    from src.actions.system import export_tools_json
+
+    fingerprint = catalog_fingerprint()
+    previous = ""
+    try:
+        previous = CATALOG_HASH_FILE.read_text().strip()
+    except OSError:
+        pass
+    changed = previous != fingerprint
+    if changed:
+        TOOLS_DIR.mkdir(parents=True, exist_ok=True)
+        export_tools_json(str(CATALOG_JSON))
+        CATALOG_HASH_FILE.write_text(fingerprint)
+    return {"changed": changed, "fingerprint": fingerprint, "previous": previous or None}
+
+
+def check_artifacts_stale() -> None:
+    """Refresh the tool catalog artifacts, warning when they changed."""
+    try:
+        info = refresh_artifacts()
+    except Exception as e:
+        logger.warning("Tool catalog refresh skipped: %s", e)
+        return
+    if info["changed"]:
+        if info["previous"] is None:
+            logger.info("Tool catalog indexed (%s).", info["fingerprint"])
+        else:
+            logger.warning(
+                "Tool catalog changed (%s -> %s); discord_tools.json regenerated and "
+                "the retrieval index will rebuild on the next parse.",
+                info["previous"],
+                info["fingerprint"],
+            )
+
+
 def _make_agent(tool_schemas: list[dict[str, Any]], system: str | None):
     import needle  # lazy: engine binary downloads on first Needle() use
 
@@ -79,17 +161,49 @@ def _make_agent(tool_schemas: list[dict[str, Any]], system: str | None):
     if system:
         kwargs["system"] = system
     if len(tool_schemas) > 5:
-        kwargs["tool_index_path"] = TOOL_INDEX_PATH
+        kwargs["tool_index_path"] = resolve_index_path()
     return needle.Needle(**kwargs)
 
 
-def parse_with_needle(
+def _run_engine_blocking(
+    tool_schemas: list[dict[str, Any]], system: str | None, text: str, max_new_tokens: int
+) -> dict[str, Any]:
+    """Build a fresh agent and complete one turn. Runs in a worker thread.
+
+    A fresh binding per prompt is load-bearing: the native session carries
+    state across complete() calls, so sharing one agent leaks prior prompts'
+    facts into later parses.
+    """
+    agent = _make_agent(tool_schemas, system)
+    try:
+        return agent.complete(text, max_new_tokens=max_new_tokens)
+    finally:
+        try:
+            agent.close()
+        except Exception:
+            pass
+
+
+async def prewarm_engine() -> None:
+    """Fault in the engine binary + tool index at startup (background)."""
+    try:
+        tool_schemas = build_tool_schemas()
+        await asyncio.to_thread(_make_agent, tool_schemas, None)
+    except Exception as e:
+        logger.warning("Engine prewarm skipped: %s", e)
+
+
+async def parse_with_needle(
     text: str,
     allowed_actions: list[str] | None = None,
     system: str | None = None,
     max_new_tokens: int = 512,
 ) -> dict[str, Any]:
     """One Needle turn -> normalized ParsedIntent dict.
+
+    Async: the blocking engine runs in a worker thread under a single-flight
+    lock, so the Discord heartbeat is never starved. Times out instead of
+    hanging the interaction.
 
     Returns one of:
       {"status": "direct_action", "action": str, "parameters": dict, "confidence": float|None}
@@ -101,8 +215,14 @@ def parse_with_needle(
     """
     tool_schemas = build_tool_schemas(allowed_actions)
     try:
-        agent = _make_agent(tool_schemas, system)
-        response = agent.complete(text, max_new_tokens=max_new_tokens)
+        async with _AGENT_LOCK:
+            response = await asyncio.wait_for(
+                asyncio.to_thread(_run_engine_blocking, tool_schemas, system, text, max_new_tokens),
+                timeout=ENGINE_TIMEOUT_SECONDS,
+            )
+    except TimeoutError:
+        logger.warning("Needle engine timed out after %ss", ENGINE_TIMEOUT_SECONDS)
+        return {"status": "rejected", "reason": "Parser timed out. Please try again."}
     except Exception as err:
         logger.warning("Needle complete() failed: %s", str(err)[:200])
         return {"status": "rejected", "reason": f"Parser unavailable: {str(err)[:180]}"}

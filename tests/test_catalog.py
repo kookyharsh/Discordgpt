@@ -1,6 +1,16 @@
-import src.actions.advanced_tools
-import src.actions.extra_tools
-import src.actions.needle_tools  # noqa: F401
+import src.actions.automod
+import src.actions.channels
+import src.actions.emojis
+import src.actions.events
+import src.actions.guild
+import src.actions.invites
+import src.actions.members
+import src.actions.messages
+import src.actions.roles
+import src.actions.schedules
+import src.actions.system
+import src.actions.threads
+import src.actions.webhooks  # noqa: F401
 from src.actions.plan_executor import summarize_plan
 from src.actions.registry import ActionRegistry
 
@@ -13,6 +23,8 @@ EXPECTED = {
     "set_slowmode",
     "lock_channel",
     "unlock_channel",
+    "move_channel",
+    "set_channel_permissions",
     "create_role",
     "assign_role",
     "delete_role",
@@ -25,17 +37,41 @@ EXPECTED = {
     "unban_member",
     "set_nickname",
     "move_member",
+    "mute_member",
+    "deafen_member",
     "send_message",
     "edit_message",
     "delete_message",
     "pin_message",
     "unpin_message",
     "purge_messages",
+    "fetch_history",
+    "clear_reactions",
     "create_thread",
+    "archive_thread",
+    "list_active_threads",
     "add_reaction",
     "create_invite",
-    "mute_member",
-    "deafen_member",
+    "list_invites",
+    "delete_invite",
+    "get_guild_info",
+    "edit_guild",
+    "list_bans",
+    "create_scheduled_event",
+    "list_scheduled_events",
+    "delete_scheduled_event",
+    "list_automod_rules",
+    "create_keyword_rule",
+    "delete_automod_rule",
+    "create_webhook",
+    "list_webhooks",
+    "delete_webhook",
+    "list_emojis",
+    "create_emoji",
+    "delete_emoji",
+    "schedule_action",
+    "list_schedules",
+    "cancel_schedule",
 }
 
 

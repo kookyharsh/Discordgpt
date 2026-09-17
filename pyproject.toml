@@ -20,6 +20,7 @@ dependencies = [
     "python-dotenv>=1.0.1",
     "cron-descriptor>=1.4.3",
     "python-dateutil>=2.9.0",
+    "rich>=13.7.0",
 ]
 
 [project.optional-dependencies]
@@ -37,7 +38,9 @@ target-version = "py312"
 # BLE001/S110: broad guards around Discord REST + DB boundaries are intentional
 # (every failure maps to a user-facing embed, never a crash).
 # UP046: keep Generic[] spelling for 3.11 compat.
-ignore = ["BLE001", "S110", "UP046"]
+# TRY004: handlers raise ValueError for user-facing errors on purpose
+# (dispatcher passes ValueError straight to Discord; TypeError would mask as internal).
+ignore = ["BLE001", "S110", "UP046", "TRY004"]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"

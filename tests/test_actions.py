@@ -1,3 +1,8 @@
+import src.actions.channels
+import src.actions.members
+import src.actions.messages
+import src.actions.roles
+import src.actions.schedules  # noqa: F401
 from src.actions.registry import ActionRegistry
 
 

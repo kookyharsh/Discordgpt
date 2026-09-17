@@ -24,6 +24,10 @@ docker-compose up -d --build
 
 In Discord: `/prompt request:create channel welcome`
 
+> **Name search needs one portal toggle:** in the Discord developer portal
+> (your app → Bot), enable **Server Members Intent**. Without it, `@mentions`
+> and IDs still work, but typing plain names (`timeout Bob`) can't resolve.
+
 ## Local Dev (uv)
 
 ```bash

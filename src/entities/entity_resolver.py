@@ -22,7 +22,13 @@ class EntityResolver:
     async def resolve_channel(
         guild: discord.Guild, query: str
     ) -> ResolutionResult[discord.abc.GuildChannel]:
-        cleaned = query.lstrip("#").strip().lower()
+        cleaned = query.strip()
+        # Accept raw mention syntax: <#123> -> 123.
+        mention = re.fullmatch(r"<#(\d{15,25})>", cleaned)
+        if mention:
+            cleaned = mention.group(1)
+        else:
+            cleaned = cleaned.lstrip("#").strip().lower()
         # Snowflake direct hit
         if re.fullmatch(r"\d{15,25}", cleaned):
             ch = guild.get_channel(int(cleaned))
@@ -50,7 +56,13 @@ class EntityResolver:
 
     @staticmethod
     async def resolve_role(guild: discord.Guild, query: str) -> ResolutionResult[discord.Role]:
-        cleaned = query.lstrip("@").strip().lower()
+        cleaned = query.strip()
+        # Accept raw mention syntax: <@&123> -> 123.
+        mention = re.fullmatch(r"<@&(\d{15,25})>", cleaned)
+        if mention:
+            cleaned = mention.group(1)
+        else:
+            cleaned = cleaned.lstrip("@").strip().lower()
         if re.fullmatch(r"\d{15,25}", cleaned):
             role = guild.get_role(int(cleaned))
             if role is not None:
@@ -72,8 +84,9 @@ class EntityResolver:
 
     @staticmethod
     async def resolve_member(guild: discord.Guild, query: str) -> ResolutionResult[discord.Member]:
-        # ID or mention lookup via single REST fetch. Full search requires
-        # privileged members intent, so username search is unsupported.
+        # ID or mention lookup via single REST fetch (no intent needed), then
+        # username / display-name / nickname search over the member cache
+        # (needs the Server Members intent, enabled in main.py + dev portal).
         mention = re.match(r"^<@!?(\d+)>$", query.strip())
         candidate = mention.group(1) if mention else query.lstrip("@").strip()
         if re.fullmatch(r"\d{15,25}", candidate):
@@ -86,4 +99,36 @@ class EntityResolver:
                     return ResolutionResult(resolved=member)
             except Exception:
                 pass
+            return ResolutionResult(not_found=True)
+
+        cleaned = candidate.strip().lower()
+        if not cleaned:
+            return ResolutionResult(not_found=True)
+        try:
+            members = list(guild.members)
+        except Exception:
+            members = []
+
+        def _names(m) -> list[str]:
+            out = []
+            for attr in ("name", "display_name", "nick", "global_name"):
+                try:
+                    value = getattr(m, attr, None)
+                except Exception:
+                    value = None
+                if value and str(value).strip().lower() not in out:
+                    out.append(str(value).strip().lower())
+            return out
+
+        exact = [m for m in members if cleaned in _names(m)]
+        if len(exact) == 1:
+            return ResolutionResult(resolved=exact[0])
+        if len(exact) > 1:
+            return ResolutionResult(matches=exact, ambiguous=True)
+
+        partial = [m for m in members if any(cleaned in n for n in _names(m))]
+        if len(partial) == 1:
+            return ResolutionResult(resolved=partial[0])
+        if len(partial) > 1:
+            return ResolutionResult(matches=partial, ambiguous=True)
         return ResolutionResult(not_found=True)

@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import logging
-from datetime import UTC, datetime
 
 import discord
 from discord.ext import commands
@@ -71,6 +70,13 @@ class BotInteractionHandler:
         user_id = str(interaction.user.id)
         prompt = InjectionDefense.sanitize_external_text(request)
 
+        from src.entities.mentions import normalize_mentions, parse_mentions
+
+        mentions = parse_mentions(request)
+        # <#id> -> #name, <@&id> -> @name so text parsers see names;
+        # IDs are preserved in `mentions` for slot auto-fill below.
+        prompt = normalize_mentions(prompt, guild)
+
         if InjectionDefense.detect_prompt_injection(prompt):
             await interaction.followup.send(
                 embed=DiscordUIComponents.create_error_embed(
@@ -94,28 +100,57 @@ class BotInteractionHandler:
             parsed = FallbackParser.parse(prompt)
             source = "fallback"
             if parsed is None:
+                from src.ai.context import build_system
                 from src.ai.needle_agent import parse_with_needle
 
-                now = datetime.now(UTC).strftime("%Y-%m-%d %a %H:%M")
-                channels = [{"id": str(c.id), "name": c.name} for c in guild.channels[:100]]
-                roles = [{"id": str(r.id), "name": r.name} for r in guild.roles[:100]]
                 allowed = None
                 if settings is not None:
                     allow = getattr(settings, "allowedActions", None) or []
                     if allow:
                         allowed = list(allow)
-                system = (
-                    f"date: {now}; locale: en-US; channels: {len(channels)}; roles: {len(roles)}"
-                )
-                if history:
-                    system += "; history: " + " | ".join(history[-6:])
-                parsed = parse_with_needle(prompt, allowed_actions=allowed, system=system)
+                # Mentioned-user labels from cache only (no REST in parse path).
+                people: dict[str, str] = {}
+                for uid in mentions.users[:5]:
+                    try:
+                        member = guild.get_member(int(uid))
+                    except (TypeError, ValueError):
+                        member = None
+                    label = getattr(member, "display_name", None) if member else None
+                    people[uid] = f"@{label}" if label else "@user"
+                system = build_system(guild, channel_id, history, people=people or None)
+                parsed = await parse_with_needle(prompt, allowed_actions=allowed, system=system)
                 source = "needle"
                 logger.info("prompt parsed via=%s status=%s", source, parsed.get("status"))
 
             status = parsed.get(
                 "status", "direct_action" if parsed.get("action") else "unsupported"
             )
+
+            # Needle doesn't know about scheduling: if the raw prompt carries
+            # a delay/cron clause, reinterpret a single-action result.
+            if status == "direct_action":
+                sched, _ = FallbackParser.extract_schedule(request)
+                if sched is not None:
+                    parsed = {
+                        "status": "schedule_request",
+                        **sched,
+                        "action": parsed.get("action", ""),
+                        "parameters": dict(parsed.get("parameters") or {}),
+                    }
+                    status = "schedule_request"
+            elif status == "action_plan":
+                sched, _ = FallbackParser.extract_schedule(request)
+                if sched is not None:
+                    await interaction.followup.send(
+                        embed=DiscordUIComponents.create_error_embed(
+                            "Scheduling Plans",
+                            "I can only schedule one action at a time. "
+                            "Ask for a single action with your delay, e.g. "
+                            "'in 10 seconds, create channel lobby'.",
+                        )
+                    )
+                    await ConversationRepository.append(session, convo.id, "user", prompt)
+                    return
 
             if status in ("unsupported", "rejected"):
                 reason = parsed.get("reason", "This request is unsupported.")
@@ -179,6 +214,14 @@ class BotInteractionHandler:
                         embed=DiscordUIComponents.create_error_embed("Plan Too Large", msg)
                     )
                     return
+                from src.entities.mentions import fill_slots_from_mentions as _plan_fill
+
+                filled_steps = []
+                for step in steps:
+                    s_params, _ = _plan_fill(
+                        step.get("action", ""), dict(step.get("parameters") or {}), mentions
+                    )
+                    filled_steps.append({**step, "parameters": s_params})
                 await self._run_plan(
                     interaction,
                     session,
@@ -187,14 +230,47 @@ class BotInteractionHandler:
                     user_id,
                     prompt,
                     convo.id,
-                    steps,
+                    filled_steps,
                     settings,
                 )
                 return
 
             # direct_action (fallback shape {"action", "parameters"} or needle shape)
+            if status == "schedule_request":
+                from src.entities.mentions import fill_from_pronouns as _sched_pronoun
+                from src.entities.mentions import fill_slots_from_mentions
+
+                sched_params = dict(parsed.get("parameters") or {})
+                sched_params, sched_filled = fill_slots_from_mentions(
+                    parsed.get("action", ""), sched_params, mentions
+                )
+                sched_params, _sched_pf = _sched_pronoun(
+                    parsed.get("action", ""), sched_params, prompt, history
+                )
+                sched_filled = {**_sched_pf, **sched_filled}
+                parsed = {**parsed, "parameters": sched_params}
+                await self._handle_schedule_request(
+                    interaction,
+                    session,
+                    guild,
+                    guild_id,
+                    user_id,
+                    prompt,
+                    convo.id,
+                    parsed,
+                    settings,
+                    autofilled=sched_filled,
+                )
+                return
             action_type = parsed.get("action", "")
             params = dict(parsed.get("parameters") or {})
+            from src.entities.mentions import fill_from_pronouns
+            from src.entities.mentions import fill_slots_from_mentions as _fill
+
+            params, autofilled = _fill(action_type, params, mentions)
+            # "ban him": fall back to the most recently mentioned user.
+            params, pronoun_filled = fill_from_pronouns(action_type, params, prompt, history)
+            autofilled = {**pronoun_filled, **autofilled}
             if not action_type:
                 await interaction.followup.send(
                     embed=DiscordUIComponents.create_error_embed(
@@ -214,9 +290,17 @@ class BotInteractionHandler:
                 params,
                 settings,
                 channel_id,
+                autofilled=autofilled,
             )
 
     # ---------- single action ----------
+
+    @staticmethod
+    def _announce_fills(filled: dict | None) -> str:
+        if not filled:
+            return ""
+        targets = ", ".join(sorted(set(filled.values())))
+        return f"\nTarget: {targets}"
 
     async def _execute_single_action(
         self,
@@ -231,6 +315,7 @@ class BotInteractionHandler:
         params,
         settings,
         default_channel_id,
+        autofilled: dict | None = None,
     ):
         from src.entities.entity_resolver import EntityResolver
 
@@ -293,6 +378,54 @@ class BotInteractionHandler:
                 )
                 return
 
+        member_query = params.get("member_name") or (
+            params.get("member_id")
+            if params.get("member_id") and not str(params["member_id"]).strip().isdigit()
+            else None
+        )
+        if member_query and not str(member_query).startswith("<@"):
+            res = await EntityResolver.resolve_member(guild, str(member_query))
+            if res.resolved is not None:
+                params["member_id"] = str(res.resolved.id)
+                params.pop("member_name", None)
+                if action_type == "unban_member" and not params.get("user_id"):
+                    params["user_id"] = str(res.resolved.id)
+            elif res.ambiguous and res.matches:
+                params.pop("member_name", None)
+                await self._ask_disambiguation(
+                    interaction,
+                    session,
+                    guild,
+                    tenant_id,
+                    user_id,
+                    prompt,
+                    convo_id,
+                    action_type,
+                    params,
+                    "member_id",
+                    [
+                        {
+                            "id": str(m.id),
+                            "name": f"@{getattr(m, 'display_name', None) or m}",
+                        }
+                        for m in res.matches[:10]
+                    ],
+                    "member",
+                    default_channel_id,
+                    settings,
+                )
+                return
+            else:
+                msg = (
+                    f'I couldn\'t find a member named "{member_query}". '
+                    "@mention them or check the spelling (name search only "
+                    "finds current server members)."
+                )
+                await self._reply_error(
+                    interaction, session, convo_id, prompt, "Member Not Found", msg
+                )
+                return
+
         if not params.get("channel_id") and action_type in CHANNEL_ACTIONS and default_channel_id:
             params["channel_id"] = default_channel_id
 
@@ -344,9 +477,11 @@ class BotInteractionHandler:
 
         if res.success:
             detail = f"\n`{str(res.result)[:300]}`" if res.result else ""
+            announce = self._announce_fills(autofilled)
             await interaction.followup.send(
                 embed=DiscordUIComponents.create_success_embed(
-                    "Action Executed", f"Successfully performed **{action_type}**.{detail}"
+                    "Action Executed",
+                    f"Successfully performed **{action_type}**.{announce}{detail}",
                 )
             )
             await ConversationRepository.append(session, convo_id, "user", prompt)
@@ -415,6 +550,157 @@ class BotInteractionHandler:
         )
         await ConversationRepository.append(session, convo_id, "user", prompt)
         await ConversationRepository.append(session, convo_id, "assistant", summary[:500])
+
+    async def _handle_schedule_request(
+        self,
+        interaction,
+        session,
+        guild,
+        tenant_id,
+        user_id,
+        prompt,
+        convo_id,
+        parsed,
+        settings,
+        autofilled: dict | None = None,
+    ):
+        from src.entities.entity_resolver import EntityResolver
+
+        action_type = parsed.get("action", "")
+        params = dict(parsed.get("parameters") or {})
+        if not action_type:
+            await self._reply_error(
+                interaction,
+                session,
+                convo_id,
+                prompt,
+                "Scheduling Failed",
+                "I couldn't tell what to schedule. Try e.g. 'in 10 seconds, create channel lobby'.",
+            )
+            return
+
+        # Resolve names now for immediate feedback; IDs are stored for the run.
+        if params.get("channel_name") and not params.get("channel_id"):
+            res = await EntityResolver.resolve_channel(guild, str(params["channel_name"]))
+            if res.resolved is not None:
+                params["channel_id"] = str(res.resolved.id)
+            else:
+                await self._reply_error(
+                    interaction,
+                    session,
+                    convo_id,
+                    prompt,
+                    "Channel Not Found",
+                    f'I couldn\'t find a channel named "{params["channel_name"]}". '
+                    "Check the name and try again.",
+                )
+                return
+        if params.get("role_name") and not params.get("role_id"):
+            res = await EntityResolver.resolve_role(guild, str(params["role_name"]))
+            if res.resolved is not None:
+                params["role_id"] = str(res.resolved.id)
+            else:
+                await self._reply_error(
+                    interaction,
+                    session,
+                    convo_id,
+                    prompt,
+                    "Role Not Found",
+                    f'I couldn\'t find a role named "{params["role_name"]}". '
+                    "Check the name and try again.",
+                )
+                return
+
+        member_query = params.get("member_name") or (
+            params.get("member_id")
+            if params.get("member_id") and not str(params["member_id"]).strip().isdigit()
+            else None
+        )
+        if member_query and not str(member_query).startswith("<@"):
+            res = await EntityResolver.resolve_member(guild, str(member_query))
+            if res.resolved is not None:
+                params["member_id"] = str(res.resolved.id)
+                params.pop("member_name", None)
+            else:
+                await self._reply_error(
+                    interaction,
+                    session,
+                    convo_id,
+                    prompt,
+                    "Member Not Found",
+                    f'I couldn\'t pin down a member named "{member_query}". '
+                    "@mention them instead (schedules can't ask follow-ups).",
+                )
+                return
+
+        sched_params: dict = {
+            "action": action_type,
+            "parameters": params,
+            "timezone": getattr(settings, "timezone", None) or "UTC",
+        }
+        if parsed.get("delay_seconds"):
+            sched_params["delay_seconds"] = parsed["delay_seconds"]
+        elif parsed.get("cron"):
+            sched_params["cron"] = parsed["cron"]
+        else:
+            await self._reply_error(
+                interaction,
+                session,
+                convo_id,
+                prompt,
+                "Scheduling Failed",
+                "I couldn't understand the timing. Try 'in 10 seconds' or 'every day at 9am'.",
+            )
+            return
+
+        execution = await ExecutionRepository.create_execution(
+            session=session,
+            guild_id=tenant_id,
+            user_id=user_id,
+            prompt=prompt,
+            status="SCHEDULED",
+            parsed_intent={"status": "schedule_request", **sched_params},
+        )
+        actor = interaction.user
+        if not isinstance(actor, discord.Member):
+            try:
+                actor = await guild.fetch_member(interaction.user.id)
+            except Exception:
+                pass
+        ctx = ExecutionContext(
+            guild_id=tenant_id,
+            user_id=user_id,
+            execution_id=execution.id,
+            guild=guild,
+            actor_member=actor,
+            settings=settings,
+        )
+        res = await ActionDispatcher.dispatch(session, "schedule_action", sched_params, ctx)
+        if res.success:
+            info = res.result or {}
+            when = info.get("when", "as requested")
+            announce = self._announce_fills(autofilled)
+            await interaction.followup.send(
+                embed=DiscordUIComponents.create_success_embed(
+                    "Action Scheduled",
+                    f"I'll run **{action_type}** {when}.{announce}\n"
+                    f"Schedule ID: `{info.get('schedule_id', '?')}`\n"
+                    "Use `/prompt cancel schedule <id>` or 'list schedules' to manage it.",
+                )
+            )
+            await ConversationRepository.append(session, convo_id, "user", prompt)
+            await ConversationRepository.append(
+                session, convo_id, "assistant", f"Scheduled {action_type} {when}."
+            )
+        else:
+            await self._reply_error(
+                interaction,
+                session,
+                convo_id,
+                prompt,
+                "Scheduling Failed",
+                res.error or "Could not schedule that.",
+            )
 
     # ---------- helpers ----------
 

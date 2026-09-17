@@ -6,6 +6,7 @@
       "properties": {
         "name": {
           "maxLength": 100,
+          "minLength": 1,
           "title": "Name",
           "type": "string"
         },
@@ -44,6 +45,19 @@
           ],
           "default": null,
           "title": "Topic"
+        },
+        "reason": {
+          "anyOf": [
+            {
+              "maxLength": 512,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Reason"
         }
       },
       "required": [
@@ -132,12 +146,322 @@
           ],
           "default": null,
           "title": "Nsfw"
+        },
+        "reason": {
+          "anyOf": [
+            {
+              "maxLength": 512,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Reason"
         }
       },
       "required": [
         "channel_id"
       ],
       "title": "EditChannelInput",
+      "type": "object"
+    },
+    "risk_level": "MEDIUM",
+    "confirmation_policy": "NOT_REQUIRED"
+  },
+  {
+    "name": "rename_channel",
+    "description": "Renames a channel.",
+    "parameters": {
+      "properties": {
+        "channel_id": {
+          "title": "Channel Id",
+          "type": "string"
+        },
+        "new_name": {
+          "maxLength": 100,
+          "minLength": 1,
+          "title": "New Name",
+          "type": "string"
+        },
+        "reason": {
+          "anyOf": [
+            {
+              "maxLength": 512,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Reason"
+        }
+      },
+      "required": [
+        "channel_id",
+        "new_name"
+      ],
+      "title": "RenameChannelInput",
+      "type": "object"
+    },
+    "risk_level": "LOW",
+    "confirmation_policy": "NOT_REQUIRED"
+  },
+  {
+    "name": "set_topic",
+    "description": "Sets a text channel topic (empty clears it).",
+    "parameters": {
+      "properties": {
+        "channel_id": {
+          "title": "Channel Id",
+          "type": "string"
+        },
+        "topic": {
+          "anyOf": [
+            {
+              "maxLength": 1024,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Topic"
+        },
+        "reason": {
+          "anyOf": [
+            {
+              "maxLength": 512,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Reason"
+        }
+      },
+      "required": [
+        "channel_id"
+      ],
+      "title": "SetTopicInput",
+      "type": "object"
+    },
+    "risk_level": "LOW",
+    "confirmation_policy": "NOT_REQUIRED"
+  },
+  {
+    "name": "set_slowmode",
+    "description": "Sets slowmode delay in seconds on a text channel (0 disables).",
+    "parameters": {
+      "properties": {
+        "channel_id": {
+          "title": "Channel Id",
+          "type": "string"
+        },
+        "seconds": {
+          "maximum": 21600,
+          "minimum": 0,
+          "title": "Seconds",
+          "type": "integer"
+        },
+        "reason": {
+          "anyOf": [
+            {
+              "maxLength": 512,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Reason"
+        }
+      },
+      "required": [
+        "channel_id",
+        "seconds"
+      ],
+      "title": "SetSlowmodeInput",
+      "type": "object"
+    },
+    "risk_level": "LOW",
+    "confirmation_policy": "NOT_REQUIRED"
+  },
+  {
+    "name": "lock_channel",
+    "description": "Locks a channel by denying Send Messages for @everyone.",
+    "parameters": {
+      "properties": {
+        "channel_id": {
+          "title": "Channel Id",
+          "type": "string"
+        },
+        "reason": {
+          "anyOf": [
+            {
+              "maxLength": 512,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Reason"
+        }
+      },
+      "required": [
+        "channel_id"
+      ],
+      "title": "LockChannelInput",
+      "type": "object"
+    },
+    "risk_level": "MEDIUM",
+    "confirmation_policy": "NOT_REQUIRED"
+  },
+  {
+    "name": "unlock_channel",
+    "description": "Unlocks a channel by resetting the @everyone Send Messages overwrite to neutral.",
+    "parameters": {
+      "properties": {
+        "channel_id": {
+          "title": "Channel Id",
+          "type": "string"
+        },
+        "reason": {
+          "anyOf": [
+            {
+              "maxLength": 512,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Reason"
+        }
+      },
+      "required": [
+        "channel_id"
+      ],
+      "title": "UnlockChannelInput",
+      "type": "object"
+    },
+    "risk_level": "LOW",
+    "confirmation_policy": "NOT_REQUIRED"
+  },
+  {
+    "name": "move_channel",
+    "description": "Moves a channel to a new position and/or category.",
+    "parameters": {
+      "properties": {
+        "channel_id": {
+          "title": "Channel Id",
+          "type": "string"
+        },
+        "position": {
+          "anyOf": [
+            {
+              "maximum": 500,
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Position"
+        },
+        "category_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Category Id"
+        },
+        "reason": {
+          "anyOf": [
+            {
+              "maxLength": 512,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Reason"
+        }
+      },
+      "required": [
+        "channel_id"
+      ],
+      "title": "MoveChannelInput",
+      "type": "object"
+    },
+    "risk_level": "LOW",
+    "confirmation_policy": "NOT_REQUIRED"
+  },
+  {
+    "name": "set_channel_permissions",
+    "description": "Sets a permission overwrite for a role/member on a channel.",
+    "parameters": {
+      "properties": {
+        "channel_id": {
+          "title": "Channel Id",
+          "type": "string"
+        },
+        "target_id": {
+          "description": "Role or member ID for the overwrite",
+          "title": "Target Id",
+          "type": "string"
+        },
+        "allow": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Allow",
+          "type": "array"
+        },
+        "deny": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Deny",
+          "type": "array"
+        },
+        "reason": {
+          "anyOf": [
+            {
+              "maxLength": 512,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Reason"
+        }
+      },
+      "required": [
+        "channel_id",
+        "target_id"
+      ],
+      "title": "SetChannelPermissionsInput",
       "type": "object"
     },
     "risk_level": "MEDIUM",
@@ -221,300 +545,6 @@
       "type": "object"
     },
     "risk_level": "MEDIUM",
-    "confirmation_policy": "NOT_REQUIRED"
-  },
-  {
-    "name": "timeout_member",
-    "description": "Times out a member for a specified duration in seconds.",
-    "parameters": {
-      "properties": {
-        "member_id": {
-          "title": "Member Id",
-          "type": "string"
-        },
-        "duration_seconds": {
-          "maximum": 2419200,
-          "minimum": 1,
-          "title": "Duration Seconds",
-          "type": "integer"
-        },
-        "reason": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Reason"
-        }
-      },
-      "required": [
-        "member_id",
-        "duration_seconds"
-      ],
-      "title": "TimeoutMemberInput",
-      "type": "object"
-    },
-    "risk_level": "MEDIUM",
-    "confirmation_policy": "REQUIRED"
-  },
-  {
-    "name": "ban_member",
-    "description": "Bans a member from the guild.",
-    "parameters": {
-      "properties": {
-        "member_id": {
-          "title": "Member Id",
-          "type": "string"
-        },
-        "reason": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Reason"
-        },
-        "delete_message_seconds": {
-          "anyOf": [
-            {
-              "maximum": 604800,
-              "minimum": 0,
-              "type": "integer"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Delete Message Seconds"
-        }
-      },
-      "required": [
-        "member_id"
-      ],
-      "title": "BanMemberInput",
-      "type": "object"
-    },
-    "risk_level": "HIGH",
-    "confirmation_policy": "REQUIRED"
-  },
-  {
-    "name": "send_message",
-    "description": "Sends a text message to a channel.",
-    "parameters": {
-      "properties": {
-        "channel_id": {
-          "title": "Channel Id",
-          "type": "string"
-        },
-        "content": {
-          "maxLength": 2000,
-          "minLength": 1,
-          "title": "Content",
-          "type": "string"
-        }
-      },
-      "required": [
-        "channel_id",
-        "content"
-      ],
-      "title": "SendMessageInput",
-      "type": "object"
-    },
-    "risk_level": "LOW",
-    "confirmation_policy": "NOT_REQUIRED"
-  },
-  {
-    "name": "kick_member",
-    "description": "Kicks a member from the guild (they can rejoin with a new invite).",
-    "parameters": {
-      "properties": {
-        "member_id": {
-          "title": "Member Id",
-          "type": "string"
-        },
-        "reason": {
-          "anyOf": [
-            {
-              "maxLength": 512,
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Reason"
-        }
-      },
-      "required": [
-        "member_id"
-      ],
-      "title": "KickMemberInput",
-      "type": "object"
-    },
-    "risk_level": "HIGH",
-    "confirmation_policy": "REQUIRED"
-  },
-  {
-    "name": "unban_member",
-    "description": "Unbans a user by ID so they can rejoin the guild.",
-    "parameters": {
-      "properties": {
-        "user_id": {
-          "title": "User Id",
-          "type": "string"
-        },
-        "reason": {
-          "anyOf": [
-            {
-              "maxLength": 512,
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Reason"
-        }
-      },
-      "required": [
-        "user_id"
-      ],
-      "title": "UnbanMemberInput",
-      "type": "object"
-    },
-    "risk_level": "MEDIUM",
-    "confirmation_policy": "NOT_REQUIRED"
-  },
-  {
-    "name": "untimeout_member",
-    "description": "Removes an active timeout from a member.",
-    "parameters": {
-      "properties": {
-        "member_id": {
-          "title": "Member Id",
-          "type": "string"
-        },
-        "reason": {
-          "anyOf": [
-            {
-              "maxLength": 512,
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Reason"
-        }
-      },
-      "required": [
-        "member_id"
-      ],
-      "title": "UntimeoutMemberInput",
-      "type": "object"
-    },
-    "risk_level": "LOW",
-    "confirmation_policy": "NOT_REQUIRED"
-  },
-  {
-    "name": "set_nickname",
-    "description": "Sets or clears a member nickname (empty nickname clears it).",
-    "parameters": {
-      "properties": {
-        "member_id": {
-          "title": "Member Id",
-          "type": "string"
-        },
-        "nickname": {
-          "anyOf": [
-            {
-              "maxLength": 32,
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Nickname"
-        },
-        "reason": {
-          "anyOf": [
-            {
-              "maxLength": 512,
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Reason"
-        }
-      },
-      "required": [
-        "member_id"
-      ],
-      "title": "SetNicknameInput",
-      "type": "object"
-    },
-    "risk_level": "LOW",
-    "confirmation_policy": "NOT_REQUIRED"
-  },
-  {
-    "name": "move_member",
-    "description": "Moves a member to a voice channel, or disconnects them when no channel is given.",
-    "parameters": {
-      "properties": {
-        "member_id": {
-          "title": "Member Id",
-          "type": "string"
-        },
-        "channel_id": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Channel Id"
-        },
-        "reason": {
-          "anyOf": [
-            {
-              "maxLength": 512,
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Reason"
-        }
-      },
-      "required": [
-        "member_id"
-      ],
-      "title": "MoveMemberInput",
-      "type": "object"
-    },
-    "risk_level": "LOW",
     "confirmation_policy": "NOT_REQUIRED"
   },
   {
@@ -656,6 +686,429 @@
     "confirmation_policy": "NOT_REQUIRED"
   },
   {
+    "name": "timeout_member",
+    "description": "Times out a member for a specified duration in seconds.",
+    "parameters": {
+      "properties": {
+        "member_id": {
+          "title": "Member Id",
+          "type": "string"
+        },
+        "duration_seconds": {
+          "maximum": 2419200,
+          "minimum": 1,
+          "title": "Duration Seconds",
+          "type": "integer"
+        },
+        "reason": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Reason"
+        }
+      },
+      "required": [
+        "member_id",
+        "duration_seconds"
+      ],
+      "title": "TimeoutMemberInput",
+      "type": "object"
+    },
+    "risk_level": "MEDIUM",
+    "confirmation_policy": "REQUIRED"
+  },
+  {
+    "name": "untimeout_member",
+    "description": "Removes an active timeout from a member.",
+    "parameters": {
+      "properties": {
+        "member_id": {
+          "title": "Member Id",
+          "type": "string"
+        },
+        "reason": {
+          "anyOf": [
+            {
+              "maxLength": 512,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Reason"
+        }
+      },
+      "required": [
+        "member_id"
+      ],
+      "title": "UntimeoutMemberInput",
+      "type": "object"
+    },
+    "risk_level": "LOW",
+    "confirmation_policy": "NOT_REQUIRED"
+  },
+  {
+    "name": "kick_member",
+    "description": "Kicks a member from the guild (they can rejoin with a new invite).",
+    "parameters": {
+      "properties": {
+        "member_id": {
+          "title": "Member Id",
+          "type": "string"
+        },
+        "reason": {
+          "anyOf": [
+            {
+              "maxLength": 512,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Reason"
+        }
+      },
+      "required": [
+        "member_id"
+      ],
+      "title": "KickMemberInput",
+      "type": "object"
+    },
+    "risk_level": "HIGH",
+    "confirmation_policy": "REQUIRED"
+  },
+  {
+    "name": "ban_member",
+    "description": "Bans a member from the guild.",
+    "parameters": {
+      "properties": {
+        "member_id": {
+          "title": "Member Id",
+          "type": "string"
+        },
+        "reason": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Reason"
+        },
+        "delete_message_seconds": {
+          "anyOf": [
+            {
+              "maximum": 604800,
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Delete Message Seconds"
+        }
+      },
+      "required": [
+        "member_id"
+      ],
+      "title": "BanMemberInput",
+      "type": "object"
+    },
+    "risk_level": "HIGH",
+    "confirmation_policy": "REQUIRED"
+  },
+  {
+    "name": "unban_member",
+    "description": "Unbans a user by ID so they can rejoin the guild.",
+    "parameters": {
+      "properties": {
+        "user_id": {
+          "title": "User Id",
+          "type": "string"
+        },
+        "reason": {
+          "anyOf": [
+            {
+              "maxLength": 512,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Reason"
+        }
+      },
+      "required": [
+        "user_id"
+      ],
+      "title": "UnbanMemberInput",
+      "type": "object"
+    },
+    "risk_level": "MEDIUM",
+    "confirmation_policy": "NOT_REQUIRED"
+  },
+  {
+    "name": "set_nickname",
+    "description": "Sets or clears a member nickname (empty nickname clears it).",
+    "parameters": {
+      "properties": {
+        "member_id": {
+          "title": "Member Id",
+          "type": "string"
+        },
+        "nickname": {
+          "anyOf": [
+            {
+              "maxLength": 32,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Nickname"
+        },
+        "reason": {
+          "anyOf": [
+            {
+              "maxLength": 512,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Reason"
+        }
+      },
+      "required": [
+        "member_id"
+      ],
+      "title": "SetNicknameInput",
+      "type": "object"
+    },
+    "risk_level": "LOW",
+    "confirmation_policy": "NOT_REQUIRED"
+  },
+  {
+    "name": "move_member",
+    "description": "Moves a member to a voice channel, or disconnects them when no channel is given.",
+    "parameters": {
+      "properties": {
+        "member_id": {
+          "title": "Member Id",
+          "type": "string"
+        },
+        "channel_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Channel Id"
+        },
+        "reason": {
+          "anyOf": [
+            {
+              "maxLength": 512,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Reason"
+        }
+      },
+      "required": [
+        "member_id"
+      ],
+      "title": "MoveMemberInput",
+      "type": "object"
+    },
+    "risk_level": "LOW",
+    "confirmation_policy": "NOT_REQUIRED"
+  },
+  {
+    "name": "mute_member",
+    "description": "Server-mutes or unmutes a member in voice.",
+    "parameters": {
+      "properties": {
+        "member_id": {
+          "title": "Member Id",
+          "type": "string"
+        },
+        "muted": {
+          "default": true,
+          "title": "Muted",
+          "type": "boolean"
+        },
+        "reason": {
+          "anyOf": [
+            {
+              "maxLength": 512,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Reason"
+        }
+      },
+      "required": [
+        "member_id"
+      ],
+      "title": "MuteMemberInput",
+      "type": "object"
+    },
+    "risk_level": "LOW",
+    "confirmation_policy": "NOT_REQUIRED"
+  },
+  {
+    "name": "deafen_member",
+    "description": "Server-deafens or undeafens a member in voice.",
+    "parameters": {
+      "properties": {
+        "member_id": {
+          "title": "Member Id",
+          "type": "string"
+        },
+        "deafened": {
+          "default": true,
+          "title": "Deafened",
+          "type": "boolean"
+        },
+        "reason": {
+          "anyOf": [
+            {
+              "maxLength": 512,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Reason"
+        }
+      },
+      "required": [
+        "member_id"
+      ],
+      "title": "DeafenMemberInput",
+      "type": "object"
+    },
+    "risk_level": "LOW",
+    "confirmation_policy": "NOT_REQUIRED"
+  },
+  {
+    "name": "send_message",
+    "description": "Sends a text message to a channel.",
+    "parameters": {
+      "properties": {
+        "channel_id": {
+          "title": "Channel Id",
+          "type": "string"
+        },
+        "content": {
+          "maxLength": 2000,
+          "minLength": 1,
+          "title": "Content",
+          "type": "string"
+        }
+      },
+      "required": [
+        "channel_id",
+        "content"
+      ],
+      "title": "SendMessageInput",
+      "type": "object"
+    },
+    "risk_level": "LOW",
+    "confirmation_policy": "NOT_REQUIRED"
+  },
+  {
+    "name": "edit_message",
+    "description": "Edits the content of a bot-sent message.",
+    "parameters": {
+      "properties": {
+        "channel_id": {
+          "title": "Channel Id",
+          "type": "string"
+        },
+        "message_id": {
+          "title": "Message Id",
+          "type": "string"
+        },
+        "content": {
+          "maxLength": 2000,
+          "minLength": 1,
+          "title": "Content",
+          "type": "string"
+        }
+      },
+      "required": [
+        "channel_id",
+        "message_id",
+        "content"
+      ],
+      "title": "EditMessageInput",
+      "type": "object"
+    },
+    "risk_level": "LOW",
+    "confirmation_policy": "NOT_REQUIRED"
+  },
+  {
+    "name": "delete_message",
+    "description": "Deletes a single message by ID.",
+    "parameters": {
+      "properties": {
+        "channel_id": {
+          "title": "Channel Id",
+          "type": "string"
+        },
+        "message_id": {
+          "title": "Message Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "channel_id",
+        "message_id"
+      ],
+      "title": "DeleteMessageInput",
+      "type": "object"
+    },
+    "risk_level": "MEDIUM",
+    "confirmation_policy": "NOT_REQUIRED"
+  },
+  {
     "name": "pin_message",
     "description": "Pins a message in a text channel.",
     "parameters": {
@@ -781,187 +1234,81 @@
     "confirmation_policy": "REQUIRED"
   },
   {
-    "name": "set_slowmode",
-    "description": "Sets slowmode delay in seconds on a text channel (0 disables).",
+    "name": "add_reaction",
+    "description": "Adds an emoji reaction to a message.",
     "parameters": {
       "properties": {
         "channel_id": {
           "title": "Channel Id",
           "type": "string"
         },
-        "seconds": {
-          "maximum": 21600,
-          "minimum": 0,
-          "title": "Seconds",
-          "type": "integer"
-        },
-        "reason": {
-          "anyOf": [
-            {
-              "maxLength": 512,
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Reason"
-        }
-      },
-      "required": [
-        "channel_id",
-        "seconds"
-      ],
-      "title": "SetSlowmodeInput",
-      "type": "object"
-    },
-    "risk_level": "LOW",
-    "confirmation_policy": "NOT_REQUIRED"
-  },
-  {
-    "name": "lock_channel",
-    "description": "Locks a channel by denying Send Messages for @everyone.",
-    "parameters": {
-      "properties": {
-        "channel_id": {
-          "title": "Channel Id",
+        "message_id": {
+          "title": "Message Id",
           "type": "string"
         },
-        "reason": {
-          "anyOf": [
-            {
-              "maxLength": 512,
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Reason"
-        }
-      },
-      "required": [
-        "channel_id"
-      ],
-      "title": "LockChannelInput",
-      "type": "object"
-    },
-    "risk_level": "MEDIUM",
-    "confirmation_policy": "NOT_REQUIRED"
-  },
-  {
-    "name": "unlock_channel",
-    "description": "Unlocks a channel by resetting the @everyone Send Messages overwrite to neutral.",
-    "parameters": {
-      "properties": {
-        "channel_id": {
-          "title": "Channel Id",
-          "type": "string"
-        },
-        "reason": {
-          "anyOf": [
-            {
-              "maxLength": 512,
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Reason"
-        }
-      },
-      "required": [
-        "channel_id"
-      ],
-      "title": "UnlockChannelInput",
-      "type": "object"
-    },
-    "risk_level": "LOW",
-    "confirmation_policy": "NOT_REQUIRED"
-  },
-  {
-    "name": "rename_channel",
-    "description": "Renames a channel.",
-    "parameters": {
-      "properties": {
-        "channel_id": {
-          "title": "Channel Id",
-          "type": "string"
-        },
-        "new_name": {
-          "maxLength": 100,
+        "emoji": {
+          "maxLength": 64,
           "minLength": 1,
-          "title": "New Name",
+          "title": "Emoji",
           "type": "string"
-        },
-        "reason": {
-          "anyOf": [
-            {
-              "maxLength": 512,
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Reason"
         }
       },
       "required": [
         "channel_id",
-        "new_name"
+        "message_id",
+        "emoji"
       ],
-      "title": "RenameChannelInput",
+      "title": "AddReactionInput",
       "type": "object"
     },
     "risk_level": "LOW",
     "confirmation_policy": "NOT_REQUIRED"
   },
   {
-    "name": "set_topic",
-    "description": "Sets a text channel topic (empty clears it).",
+    "name": "fetch_history",
+    "description": "Reads recent message history from a channel (up to 50).",
     "parameters": {
       "properties": {
         "channel_id": {
           "title": "Channel Id",
           "type": "string"
         },
-        "topic": {
-          "anyOf": [
-            {
-              "maxLength": 1024,
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Topic"
-        },
-        "reason": {
-          "anyOf": [
-            {
-              "maxLength": 512,
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Reason"
+        "limit": {
+          "default": 10,
+          "maximum": 50,
+          "minimum": 1,
+          "title": "Limit",
+          "type": "integer"
         }
       },
       "required": [
         "channel_id"
       ],
-      "title": "SetTopicInput",
+      "title": "FetchHistoryInput",
+      "type": "object"
+    },
+    "risk_level": "LOW",
+    "confirmation_policy": "NOT_REQUIRED"
+  },
+  {
+    "name": "clear_reactions",
+    "description": "Removes all reactions from a message.",
+    "parameters": {
+      "properties": {
+        "channel_id": {
+          "title": "Channel Id",
+          "type": "string"
+        },
+        "message_id": {
+          "title": "Message Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "channel_id",
+        "message_id"
+      ],
+      "title": "ClearReactionsInput",
       "type": "object"
     },
     "risk_level": "LOW",
@@ -997,8 +1344,12 @@
         "auto_archive_minutes": {
           "anyOf": [
             {
-              "maximum": 10080,
-              "minimum": 60,
+              "enum": [
+                60,
+                1440,
+                4320,
+                10080
+              ],
               "type": "integer"
             },
             {
@@ -1033,31 +1384,48 @@
     "confirmation_policy": "NOT_REQUIRED"
   },
   {
-    "name": "add_reaction",
-    "description": "Adds an emoji reaction to a message.",
+    "name": "archive_thread",
+    "description": "Archives or unarchives a thread.",
     "parameters": {
       "properties": {
-        "channel_id": {
-          "title": "Channel Id",
+        "thread_id": {
+          "title": "Thread Id",
           "type": "string"
         },
-        "message_id": {
-          "title": "Message Id",
-          "type": "string"
+        "archived": {
+          "default": true,
+          "title": "Archived",
+          "type": "boolean"
         },
-        "emoji": {
-          "maxLength": 64,
-          "minLength": 1,
-          "title": "Emoji",
-          "type": "string"
+        "reason": {
+          "anyOf": [
+            {
+              "maxLength": 512,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Reason"
         }
       },
       "required": [
-        "channel_id",
-        "message_id",
-        "emoji"
+        "thread_id"
       ],
-      "title": "AddReactionInput",
+      "title": "ArchiveThreadInput",
+      "type": "object"
+    },
+    "risk_level": "LOW",
+    "confirmation_policy": "NOT_REQUIRED"
+  },
+  {
+    "name": "list_active_threads",
+    "description": "Lists active threads in the guild.",
+    "parameters": {
+      "properties": {},
+      "title": "ListActiveThreadsInput",
       "type": "object"
     },
     "risk_level": "LOW",
@@ -1110,145 +1478,529 @@
     "confirmation_policy": "NOT_REQUIRED"
   },
   {
-    "name": "mute_member",
-    "description": "Server-mutes or unmutes a member in voice.",
+    "name": "list_invites",
+    "description": "Lists active server invites.",
     "parameters": {
-      "properties": {
-        "member_id": {
-          "title": "Member Id",
-          "type": "string"
-        },
-        "muted": {
-          "default": true,
-          "title": "Muted",
-          "type": "boolean"
-        },
-        "reason": {
-          "anyOf": [
-            {
-              "maxLength": 512,
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Reason"
-        }
-      },
-      "required": [
-        "member_id"
-      ],
-      "title": "MuteMemberInput",
+      "properties": {},
+      "title": "ListInvitesInput",
       "type": "object"
     },
     "risk_level": "LOW",
     "confirmation_policy": "NOT_REQUIRED"
   },
   {
-    "name": "deafen_member",
-    "description": "Server-deafens or undeafens a member in voice.",
+    "name": "delete_invite",
+    "description": "Deletes a server invite by code.",
     "parameters": {
       "properties": {
-        "member_id": {
-          "title": "Member Id",
-          "type": "string"
-        },
-        "deafened": {
-          "default": true,
-          "title": "Deafened",
-          "type": "boolean"
-        },
-        "reason": {
-          "anyOf": [
-            {
-              "maxLength": 512,
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Reason"
-        }
-      },
-      "required": [
-        "member_id"
-      ],
-      "title": "DeafenMemberInput",
-      "type": "object"
-    },
-    "risk_level": "LOW",
-    "confirmation_policy": "NOT_REQUIRED"
-  },
-  {
-    "name": "edit_message",
-    "description": "Edits the content of a bot-sent message.",
-    "parameters": {
-      "properties": {
-        "channel_id": {
-          "title": "Channel Id",
-          "type": "string"
-        },
-        "message_id": {
-          "title": "Message Id",
-          "type": "string"
-        },
-        "content": {
-          "maxLength": 2000,
-          "minLength": 1,
-          "title": "Content",
+        "code": {
+          "maxLength": 32,
+          "minLength": 2,
+          "title": "Code",
           "type": "string"
         }
       },
       "required": [
-        "channel_id",
-        "message_id",
-        "content"
+        "code"
       ],
-      "title": "EditMessageInput",
-      "type": "object"
-    },
-    "risk_level": "LOW",
-    "confirmation_policy": "NOT_REQUIRED"
-  },
-  {
-    "name": "delete_message",
-    "description": "Deletes a single message by ID.",
-    "parameters": {
-      "properties": {
-        "channel_id": {
-          "title": "Channel Id",
-          "type": "string"
-        },
-        "message_id": {
-          "title": "Message Id",
-          "type": "string"
-        },
-        "reason": {
-          "anyOf": [
-            {
-              "maxLength": 512,
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Reason"
-        }
-      },
-      "required": [
-        "channel_id",
-        "message_id"
-      ],
-      "title": "DeleteMessageInput",
+      "title": "DeleteInviteInput",
       "type": "object"
     },
     "risk_level": "MEDIUM",
+    "confirmation_policy": "NOT_REQUIRED"
+  },
+  {
+    "name": "get_guild_info",
+    "description": "Returns basic guild info: name, member/channel/role counts.",
+    "parameters": {
+      "properties": {},
+      "title": "GetGuildInfoInput",
+      "type": "object"
+    },
+    "risk_level": "LOW",
+    "confirmation_policy": "NOT_REQUIRED"
+  },
+  {
+    "name": "edit_guild",
+    "description": "Edits guild name and/or description.",
+    "parameters": {
+      "properties": {
+        "name": {
+          "anyOf": [
+            {
+              "maxLength": 100,
+              "minLength": 2,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Name"
+        },
+        "description": {
+          "anyOf": [
+            {
+              "maxLength": 500,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Description"
+        },
+        "reason": {
+          "anyOf": [
+            {
+              "maxLength": 512,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Reason"
+        }
+      },
+      "title": "EditGuildInput",
+      "type": "object"
+    },
+    "risk_level": "MEDIUM",
+    "confirmation_policy": "NOT_REQUIRED"
+  },
+  {
+    "name": "list_bans",
+    "description": "Lists banned users in the guild.",
+    "parameters": {
+      "properties": {
+        "limit": {
+          "default": 50,
+          "maximum": 200,
+          "minimum": 1,
+          "title": "Limit",
+          "type": "integer"
+        }
+      },
+      "title": "ListBansInput",
+      "type": "object"
+    },
+    "risk_level": "LOW",
+    "confirmation_policy": "NOT_REQUIRED"
+  },
+  {
+    "name": "create_scheduled_event",
+    "description": "Creates a scheduled event (voice if channel_id given, else external).",
+    "parameters": {
+      "properties": {
+        "name": {
+          "maxLength": 100,
+          "minLength": 1,
+          "title": "Name",
+          "type": "string"
+        },
+        "start_time": {
+          "format": "date-time",
+          "title": "Start Time",
+          "type": "string"
+        },
+        "description": {
+          "anyOf": [
+            {
+              "maxLength": 1000,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Description"
+        },
+        "channel_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Channel Id"
+        },
+        "end_time": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "End Time"
+        },
+        "reason": {
+          "anyOf": [
+            {
+              "maxLength": 512,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Reason"
+        }
+      },
+      "required": [
+        "name",
+        "start_time"
+      ],
+      "title": "CreateScheduledEventInput",
+      "type": "object"
+    },
+    "risk_level": "LOW",
+    "confirmation_policy": "NOT_REQUIRED"
+  },
+  {
+    "name": "list_scheduled_events",
+    "description": "Lists scheduled events in the guild.",
+    "parameters": {
+      "properties": {},
+      "title": "ListScheduledEventsInput",
+      "type": "object"
+    },
+    "risk_level": "LOW",
+    "confirmation_policy": "NOT_REQUIRED"
+  },
+  {
+    "name": "delete_scheduled_event",
+    "description": "Deletes a scheduled event by ID.",
+    "parameters": {
+      "properties": {
+        "event_id": {
+          "title": "Event Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "event_id"
+      ],
+      "title": "DeleteScheduledEventInput",
+      "type": "object"
+    },
+    "risk_level": "MEDIUM",
+    "confirmation_policy": "NOT_REQUIRED"
+  },
+  {
+    "name": "list_automod_rules",
+    "description": "Lists AutoMod rules in the guild.",
+    "parameters": {
+      "properties": {},
+      "title": "ListAutomodRulesInput",
+      "type": "object"
+    },
+    "risk_level": "LOW",
+    "confirmation_policy": "NOT_REQUIRED"
+  },
+  {
+    "name": "create_keyword_rule",
+    "description": "Creates an AutoMod keyword block rule.",
+    "parameters": {
+      "properties": {
+        "name": {
+          "maxLength": 100,
+          "minLength": 1,
+          "title": "Name",
+          "type": "string"
+        },
+        "keywords": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 20,
+          "minItems": 1,
+          "title": "Keywords",
+          "type": "array"
+        },
+        "reason": {
+          "anyOf": [
+            {
+              "maxLength": 512,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Reason"
+        }
+      },
+      "required": [
+        "name",
+        "keywords"
+      ],
+      "title": "CreateKeywordRuleInput",
+      "type": "object"
+    },
+    "risk_level": "MEDIUM",
+    "confirmation_policy": "NOT_REQUIRED"
+  },
+  {
+    "name": "delete_automod_rule",
+    "description": "Deletes an AutoMod rule by ID.",
+    "parameters": {
+      "properties": {
+        "rule_id": {
+          "title": "Rule Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "rule_id"
+      ],
+      "title": "DeleteAutomodRuleInput",
+      "type": "object"
+    },
+    "risk_level": "MEDIUM",
+    "confirmation_policy": "NOT_REQUIRED"
+  },
+  {
+    "name": "create_webhook",
+    "description": "Creates a webhook in a text channel.",
+    "parameters": {
+      "properties": {
+        "channel_id": {
+          "title": "Channel Id",
+          "type": "string"
+        },
+        "name": {
+          "maxLength": 80,
+          "minLength": 1,
+          "title": "Name",
+          "type": "string"
+        },
+        "reason": {
+          "anyOf": [
+            {
+              "maxLength": 512,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Reason"
+        }
+      },
+      "required": [
+        "channel_id",
+        "name"
+      ],
+      "title": "CreateWebhookInput",
+      "type": "object"
+    },
+    "risk_level": "MEDIUM",
+    "confirmation_policy": "NOT_REQUIRED"
+  },
+  {
+    "name": "list_webhooks",
+    "description": "Lists webhooks in the guild.",
+    "parameters": {
+      "properties": {},
+      "title": "ListWebhooksInput",
+      "type": "object"
+    },
+    "risk_level": "LOW",
+    "confirmation_policy": "NOT_REQUIRED"
+  },
+  {
+    "name": "delete_webhook",
+    "description": "Deletes a webhook by ID.",
+    "parameters": {
+      "properties": {
+        "webhook_id": {
+          "title": "Webhook Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "webhook_id"
+      ],
+      "title": "DeleteWebhookInput",
+      "type": "object"
+    },
+    "risk_level": "MEDIUM",
+    "confirmation_policy": "NOT_REQUIRED"
+  },
+  {
+    "name": "list_emojis",
+    "description": "Lists custom emojis in the guild.",
+    "parameters": {
+      "properties": {},
+      "title": "ListEmojisInput",
+      "type": "object"
+    },
+    "risk_level": "LOW",
+    "confirmation_policy": "NOT_REQUIRED"
+  },
+  {
+    "name": "create_emoji",
+    "description": "Creates a custom emoji from base64 image data.",
+    "parameters": {
+      "properties": {
+        "name": {
+          "maxLength": 32,
+          "minLength": 2,
+          "title": "Name",
+          "type": "string"
+        },
+        "image_base64": {
+          "description": "PNG/JPEG bytes, base64-encoded, max 256KB",
+          "title": "Image Base64",
+          "type": "string"
+        },
+        "reason": {
+          "anyOf": [
+            {
+              "maxLength": 512,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Reason"
+        }
+      },
+      "required": [
+        "name",
+        "image_base64"
+      ],
+      "title": "CreateEmojiInput",
+      "type": "object"
+    },
+    "risk_level": "LOW",
+    "confirmation_policy": "NOT_REQUIRED"
+  },
+  {
+    "name": "delete_emoji",
+    "description": "Deletes a custom emoji by ID.",
+    "parameters": {
+      "properties": {
+        "emoji_id": {
+          "title": "Emoji Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "emoji_id"
+      ],
+      "title": "DeleteEmojiInput",
+      "type": "object"
+    },
+    "risk_level": "MEDIUM",
+    "confirmation_policy": "NOT_REQUIRED"
+  },
+  {
+    "name": "schedule_action",
+    "description": "Schedules a Discord action once after delay_seconds (5s-30d) or on a cron expression. Dangerous actions needing confirmation can't be scheduled.",
+    "parameters": {
+      "properties": {
+        "action": {
+          "maxLength": 64,
+          "minLength": 1,
+          "title": "Action",
+          "type": "string"
+        },
+        "parameters": {
+          "additionalProperties": true,
+          "title": "Parameters",
+          "type": "object"
+        },
+        "delay_seconds": {
+          "anyOf": [
+            {
+              "maximum": 2592000,
+              "minimum": 5,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Delay Seconds"
+        },
+        "cron": {
+          "anyOf": [
+            {
+              "maxLength": 128,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Cron"
+        },
+        "timezone": {
+          "default": "UTC",
+          "maxLength": 64,
+          "title": "Timezone",
+          "type": "string"
+        }
+      },
+      "required": [
+        "action"
+      ],
+      "title": "ScheduleActionInput",
+      "type": "object"
+    },
+    "risk_level": "LOW",
+    "confirmation_policy": "NOT_REQUIRED"
+  },
+  {
+    "name": "list_schedules",
+    "description": "Lists active scheduled (delayed/cron) actions for this server.",
+    "parameters": {
+      "properties": {},
+      "title": "ListSchedulesInput",
+      "type": "object"
+    },
+    "risk_level": "LOW",
+    "confirmation_policy": "NOT_REQUIRED"
+  },
+  {
+    "name": "cancel_schedule",
+    "description": "Cancels a scheduled action by ID.",
+    "parameters": {
+      "properties": {
+        "schedule_id": {
+          "maxLength": 64,
+          "minLength": 1,
+          "title": "Schedule Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "schedule_id"
+      ],
+      "title": "CancelScheduleInput",
+      "type": "object"
+    },
+    "risk_level": "LOW",
     "confirmation_policy": "NOT_REQUIRED"
   }
 ]

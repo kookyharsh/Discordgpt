@@ -232,6 +232,45 @@ class ScheduledActionRepository:
         return res.scalar_one_or_none()
 
     @staticmethod
+    async def get_by_id(session: AsyncSession, id: str) -> ScheduledAction | None:
+        res = await session.execute(select(ScheduledAction).where(ScheduledAction.id == id))
+        return res.scalar_one_or_none()
+
+    @staticmethod
+    async def disable(session: AsyncSession, id: str) -> None:
+        row = await ScheduledActionRepository.get_by_id(session, id)
+        if row is None:
+            return
+        row.enabled = False
+        row.nextRunAt = None
+        await session.commit()
+
+    @staticmethod
+    async def update_next_run(session: AsyncSession, id: str, next_run: datetime | None) -> None:
+        row = await ScheduledActionRepository.get_by_id(session, id)
+        if row is None:
+            return
+        row.nextRunAt = next_run
+        await session.commit()
+
+    @staticmethod
+    async def record_run(
+        session: AsyncSession,
+        schedule_id: str,
+        status: str,
+        result: Any | None = None,
+        error: str | None = None,
+    ) -> None:
+        from src.database.models import ScheduledActionRun
+
+        session.add(
+            ScheduledActionRun(
+                scheduledActionId=schedule_id, status=status, result=result, error=error
+            )
+        )
+        await session.commit()
+
+    @staticmethod
     async def delete(session: AsyncSession, id: str, guild_id: str) -> int:
         from sqlalchemy import delete as sa_delete
 
