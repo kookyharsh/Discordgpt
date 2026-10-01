@@ -222,6 +222,23 @@ async def parse_with_needle(
       {"status": "rejected", "reason": str}  # engine/transport failure
     """
     tool_schemas = build_tool_schemas(allowed_actions)
+    provider = os.getenv("AI_PROVIDER", "needle").strip().lower()
+    if provider == "openrouter":
+        from src.ai.openrouter_agent import parse_with_openrouter
+
+        try:
+            response = await parse_with_openrouter(text, tool_schemas, system)
+        except Exception as err:
+            logger.warning("OpenRouter parse failed: %s", str(err)[:250])
+            if os.getenv("OPENROUTER_FALLBACK_TO_NEEDLE", "true").lower() not in {
+                "1",
+                "true",
+                "yes",
+            }:
+                return {"status": "rejected", "reason": f"OpenRouter unavailable: {str(err)[:180]}"}
+            logger.info("Falling back to local Needle parser.")
+        else:
+            return _normalize_parsed_response(response)
     try:
         async with _AGENT_LOCK:
             response = await asyncio.wait_for(
@@ -235,6 +252,11 @@ async def parse_with_needle(
         logger.warning("Needle complete() failed: %s", str(err)[:200])
         return {"status": "rejected", "reason": f"Parser unavailable: {str(err)[:180]}"}
 
+    return _normalize_parsed_response(response)
+
+
+def _normalize_parsed_response(response: dict[str, Any]) -> dict[str, Any]:
+    """Map a provider-neutral function-call response to the app status shape."""
     confidence = response.get("confidence")
     calls = response.get("function_calls") or []
     if not calls:
