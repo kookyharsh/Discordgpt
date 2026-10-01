@@ -1,4 +1,5 @@
 # Discord Agent (Python - discord.py & Cactus-Needle)
+> Project status: This project is no longer actively maintained. Contributions, fixes, forks, and improvements are welcome.
 
 A production-grade, multi-tenant Discord management agent written in Python using `discord.py@2.x` and `cactus-needle` for native LLM tool-calling.
 
