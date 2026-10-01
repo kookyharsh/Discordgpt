@@ -37,6 +37,23 @@ ActionRegistry.register(
 )
 
 
+class EditEmojiInput(BaseModel):
+    emoji_id: str
+    name: str | None = Field(None, min_length=2, max_length=32)
+    reason: str | None = Field(None, max_length=512)
+
+
+async def edit_emoji_handler(ctx, data: EditEmojiInput):
+    emoji = ctx.guild.get_emoji(int(data.emoji_id)) or await ctx.guild.fetch_emoji(int(data.emoji_id))
+    if data.name is None:
+        raise ValueError("Provide a new emoji name.")
+    await emoji.edit(name=data.name, reason=data.reason)
+    return {"emoji_id": data.emoji_id, "name": data.name, "updated": True}
+
+
+ActionRegistry.register(ActionDefinition(type="edit_emoji", description="Renames a custom guild emoji.", input_schema=EditEmojiInput, required_bot_permissions=discord.Permissions(manage_emojis_and_stickers=True), required_user_permissions=discord.Permissions(manage_emojis_and_stickers=True), risk_level=RiskLevel.LOW, confirmation_policy=ConfirmationPolicy.NOT_REQUIRED, handler=edit_emoji_handler))
+
+
 class CreateEmojiInput(BaseModel):
     name: str = Field(..., min_length=2, max_length=32)
     image_base64: str = Field(..., description="PNG/JPEG bytes, base64-encoded, max 256KB")

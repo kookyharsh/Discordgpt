@@ -28,6 +28,7 @@ class ExecutionContext(BaseModel):
     guild: Any  # discord.Guild
     actor_member: Any  # discord.Member
     settings: Any | None = None
+    bot: Any | None = None  # commands.Bot / discord.Client
 
 
 class ActionDefinition(BaseModel):

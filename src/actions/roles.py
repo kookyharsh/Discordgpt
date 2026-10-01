@@ -52,6 +52,24 @@ ActionRegistry.register(
 )
 
 
+class ReorderRoleInput(BaseModel):
+    role_id: str
+    position: int = Field(..., ge=1, le=250)
+    reason: str | None = Field(None, max_length=512)
+
+
+async def reorder_role_handler(ctx, data: ReorderRoleInput):
+    role = ctx.guild.get_role(coerce_snowflake(data.role_id, "role"))
+    if role is None: raise ValueError(f"Role {data.role_id} not found.")
+    ok, reason = HierarchyEngine.can_bot_manage_role(ctx.guild, role)
+    if not ok: raise ValueError(reason)
+    await role.edit(position=data.position, reason=data.reason)
+    return {"role_id": data.role_id, "position": data.position, "updated": True}
+
+
+ActionRegistry.register(ActionDefinition(type="reorder_role", description="Moves a manageable role to a new role position.", input_schema=ReorderRoleInput, required_bot_permissions=discord.Permissions(manage_roles=True), required_user_permissions=discord.Permissions(manage_roles=True), risk_level=RiskLevel.MEDIUM, confirmation_policy=ConfirmationPolicy.NOT_REQUIRED, handler=reorder_role_handler))
+
+
 class AssignRoleInput(BaseModel):
     member_id: str
     role_id: str
@@ -161,11 +179,12 @@ class EditRoleInput(BaseModel):
     color: str | None = None
     hoist: bool | None = None
     mentionable: bool | None = None
+    permissions: list[str] | None = Field(None, max_length=64)
     reason: str | None = Field(None, max_length=512)
 
 
 async def edit_role_handler(ctx, data: EditRoleInput):
-    if all(v is None for v in (data.name, data.color, data.hoist, data.mentionable)):
+    if all(v is None for v in (data.name, data.color, data.hoist, data.mentionable, data.permissions)):
         raise ValueError(
             "Nothing to change: provide at least one of name, color, hoist, mentionable."
         )
@@ -187,6 +206,9 @@ async def edit_role_handler(ctx, data: EditRoleInput):
         kwargs["hoist"] = data.hoist
     if data.mentionable is not None:
         kwargs["mentionable"] = data.mentionable
+    if data.permissions is not None:
+        from src.actions._helpers import permissions_from_names
+        kwargs["permissions"] = permissions_from_names(data.permissions)
     if data.reason is not None:
         kwargs["reason"] = data.reason
     updated = await role.edit(**kwargs)

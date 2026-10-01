@@ -139,6 +139,21 @@ class FallbackParser:
         raw = prompt.strip()
 
         m = re.search(
+            r"create (?:a )?(voice|stage|announcement|news|forum|text) channel "
+            r"(?:called |named )?([a-z0-9-_]+)",
+            normalized,
+            re.IGNORECASE,
+        )
+        if m:
+            channel_type = m.group(1).lower()
+            if channel_type == "news":
+                channel_type = "announcement"
+            return {
+                "action": "create_channel",
+                "parameters": {"name": m.group(2), "type": channel_type},
+            }
+
+        m = re.search(
             r"create (?:a )?(?:text )?channel (?:called |named )?([a-z0-9-_]+)",
             normalized,
             re.IGNORECASE,
@@ -148,6 +163,14 @@ class FallbackParser:
 
         m = re.search(
             r"(?:delete|remove) (?:the )?(?:text )?channel (?:called |named )?#?([a-z0-9-_]+)",
+            normalized,
+            re.IGNORECASE,
+        )
+        if m:
+            return {"action": "delete_channel", "parameters": {"channel_name": m.group(1)}}
+
+        m = re.search(
+            r"(?:delete|remove)\s+(?:the\s+)?#?([a-z0-9][a-z0-9-_]{0,99})\s+channel\b",
             normalized,
             re.IGNORECASE,
         )
@@ -275,5 +298,24 @@ class FallbackParser:
                 "action": "send_message",
                 "parameters": {"content": m.group(1), "channel_name": m.group(2)},
             }
+
+        m = re.search(r"\b(?:create|make|start)\s+(?:a\s+)?poll\s+(?:in\s+)?#?([a-z0-9-_]+)?\s*(?:about|with question|asking)\s+(.+?)\s*(?:options?|answers?)\s*[:=]\s*(.+)$", normalized, re.IGNORECASE)
+        if m:
+            answers = [a.strip() for a in re.split(r"[,|/]", m.group(3)) if a.strip()]
+            params = {"question": m.group(2).strip(), "answers": answers}
+            if m.group(1): params["channel_name"] = m.group(1)
+            return {"action": "create_poll", "parameters": params}
+
+        m = re.search(r"\b(?:show|list|get)\s+(?:the\s+)?(?:last\s+)?(\d{1,3})?\s*(?:entries?\s+)?(?:from\s+)?(?:the\s+)?audit\s+log", normalized, re.IGNORECASE)
+        if m:
+            return {"action": "get_audit_log", "parameters": {"limit": min(int(m.group(1) or 25), 100)}}
+
+        m = re.search(r"\b(?:create|make)\s+(?:a\s+)?forum\s+post\s+in\s+#?([a-z0-9-_]+)\s+(?:called|named)\s+(.+?)\s*:\s*(.+)$", normalized, re.IGNORECASE)
+        if m:
+            return {"action": "create_forum_post", "parameters": {"channel_name": m.group(1), "name": m.group(2).strip(), "content": m.group(3).strip()}}
+
+        m = re.search(r"\bstart\s+(?:a\s+)?stage\s+(?:in|at)\s+#?([a-z0-9-_]+)\s+(?:about|for)\s+(.+)$", normalized, re.IGNORECASE)
+        if m:
+            return {"action": "start_stage", "parameters": {"channel_name": m.group(1), "topic": m.group(2).strip()}}
 
         return None

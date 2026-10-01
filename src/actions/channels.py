@@ -17,10 +17,12 @@ from src.actions.types import ActionDefinition, ConfirmationPolicy, RiskLevel
 
 class CreateChannelInput(BaseModel):
     name: str = Field(..., min_length=1, max_length=100)
-    type: Literal["text", "voice", "category", "forum"] = "text"
+    type: Literal["text", "voice", "category", "forum", "announcement", "stage"] = "text"
     category_id: str | None = None
     topic: str | None = Field(None, max_length=1024)
     reason: str | None = Field(None, max_length=512)
+    bitrate: int | None = Field(None, ge=8000, le=384000)
+    user_limit: int | None = Field(None, ge=0, le=99)
 
 
 async def create_channel_handler(ctx, input_data: CreateChannelInput):
@@ -33,15 +35,19 @@ async def create_channel_handler(ctx, input_data: CreateChannelInput):
     if input_data.reason:
         kwargs["reason"] = input_data.reason
 
-    if input_data.type == "text":
+    if input_data.type in ("text", "announcement"):
         if input_data.topic:
             kwargs["topic"] = input_data.topic
         if category is not None:
             kwargs["category"] = category
+        if input_data.type == "announcement":
+            kwargs["news"] = True
         ch = await ctx.guild.create_text_channel(**kwargs)
     elif input_data.type == "voice":
         if category is not None:
             kwargs["category"] = category
+        if input_data.bitrate is not None: kwargs["bitrate"] = input_data.bitrate
+        if input_data.user_limit is not None: kwargs["user_limit"] = input_data.user_limit
         ch = await ctx.guild.create_voice_channel(**kwargs)
     elif input_data.type == "category":
         ch = await ctx.guild.create_category(**kwargs)
@@ -51,6 +57,10 @@ async def create_channel_handler(ctx, input_data: CreateChannelInput):
         if category is not None:
             kwargs["category"] = category
         ch = await ctx.guild.create_forum(**kwargs)
+    elif input_data.type == "stage":
+        if input_data.bitrate is not None: kwargs["bitrate"] = input_data.bitrate
+        if input_data.user_limit is not None: kwargs["user_limit"] = input_data.user_limit
+        ch = await ctx.guild.create_stage_channel(**kwargs)
     else:  # pragma: no cover - pydantic Literal guards this
         raise ValueError(f"Unknown channel type: {input_data.type}")
     return {"channel_id": str(ch.id), "name": ch.name, "type": input_data.type}
@@ -359,3 +369,22 @@ ActionRegistry.register(
         handler=set_channel_permissions_handler,
     )
 )
+
+
+class DeleteChannelPermissionInput(BaseModel):
+    channel_id: str
+    target_id: str
+    reason: str | None = Field(None, max_length=512)
+
+
+async def delete_channel_permission_handler(ctx, data: DeleteChannelPermissionInput):
+    from src.actions._helpers import coerce_snowflake
+    ch = await resolve_guild_channel(ctx.guild, data.channel_id)
+    target = ctx.guild.get_role(coerce_snowflake(data.target_id, "role"))
+    if target is None:
+        target = await resolve_member_by_id(ctx.guild, data.target_id)
+    await ch.set_permissions(target, overwrite=None, reason=data.reason)
+    return {"channel_id": data.channel_id, "target_id": data.target_id, "deleted": True}
+
+
+ActionRegistry.register(ActionDefinition(type="delete_channel_permission", description="Deletes a role or member permission overwrite from a channel.", input_schema=DeleteChannelPermissionInput, required_bot_permissions=discord.Permissions(manage_channels=True, manage_roles=True), required_user_permissions=discord.Permissions(manage_channels=True), risk_level=RiskLevel.MEDIUM, confirmation_policy=ConfirmationPolicy.NOT_REQUIRED, handler=delete_channel_permission_handler))

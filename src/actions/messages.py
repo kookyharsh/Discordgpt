@@ -5,31 +5,81 @@ Side-effect import registers into ActionRegistry.
 
 from __future__ import annotations
 
+from datetime import timedelta
+from io import BytesIO
+from pathlib import Path
+from typing import Literal
+from urllib.parse import urlparse
+
 import discord
 from pydantic import BaseModel, Field
 
-from src.actions._helpers import resolve_guild_channel, resolve_text_channel
+from src.actions._helpers import (
+    fetch_url_bytes,
+    parse_color,
+    resolve_guild_channel,
+    resolve_text_channel,
+)
 from src.actions.registry import ActionRegistry
 from src.actions.types import ActionDefinition, ConfirmationPolicy, RiskLevel
 
 
 class SendMessageInput(BaseModel):
     channel_id: str
-    content: str = Field(..., min_length=1, max_length=2000)
+    content: str | None = Field(None, max_length=2000)
+    reply_to_message_id: str | None = None
+    embed_title: str | None = Field(None, max_length=256)
+    embed_description: str | None = Field(None, max_length=4096)
+    embed_color: str | None = None
+    attachment_url: str | None = Field(None, max_length=512)
+    sticker_id: str | None = None
 
 
 async def send_message_handler(ctx, input_data: SendMessageInput):
     ch = await resolve_text_channel(ctx.guild, input_data.channel_id)
     if not hasattr(ch, "send"):
         raise ValueError(f"Channel {input_data.channel_id} cannot receive messages.")
-    msg = await ch.send(content=input_data.content)
+    content = (input_data.content or "").strip() or None
+    embed = None
+    if input_data.embed_title or input_data.embed_description:
+        embed = discord.Embed(
+            title=input_data.embed_title,
+            description=input_data.embed_description,
+            color=parse_color(input_data.embed_color) or discord.Color.blurple(),
+        )
+    kwargs: dict = {}
+    if content:
+        kwargs["content"] = content
+    if embed is not None:
+        kwargs["embed"] = embed
+    if input_data.reply_to_message_id:
+        kwargs["reference"] = discord.MessageReference(
+            message_id=int(input_data.reply_to_message_id),
+            channel_id=ch.id,
+            guild_id=ctx.guild.id,
+            fail_if_not_exists=False,
+        )
+    if input_data.sticker_id:
+        kwargs["stickers"] = [discord.Object(id=int(input_data.sticker_id))]
+    file = None
+    if input_data.attachment_url:
+        raw = await fetch_url_bytes(input_data.attachment_url)
+        name = Path(urlparse(input_data.attachment_url).path).name or "attachment.bin"
+        file = discord.File(BytesIO(raw), filename=name[:80])
+        kwargs["file"] = file
+    if not kwargs:
+        raise ValueError("Provide content, an embed, a sticker, or an attachment URL.")
+    msg = await ch.send(**kwargs)
     return {"message_id": str(msg.id), "channel_id": str(ch.id), "sent": True}
 
 
 ActionRegistry.register(
     ActionDefinition(
         type="send_message",
-        description="Sends a text message to a channel.",
+        description=(
+            "Sends a message to a channel. Optional embed_title/embed_description, "
+            "reply_to_message_id, attachment_url, or sticker_id."
+        ),
         input_schema=SendMessageInput,
         required_bot_permissions=discord.Permissions(send_messages=True),
         required_user_permissions=discord.Permissions(send_messages=True),
@@ -274,5 +324,109 @@ ActionRegistry.register(
         risk_level=RiskLevel.LOW,
         confirmation_policy=ConfirmationPolicy.NOT_REQUIRED,
         handler=clear_reactions_handler,
+    )
+)
+
+
+class RemoveReactionInput(BaseModel):
+    channel_id: str
+    message_id: str
+    emoji: str = Field(..., min_length=1, max_length=64)
+    user_id: str | None = None
+
+
+async def remove_reaction_handler(ctx, data: RemoveReactionInput):
+    ch = await resolve_text_channel(ctx.guild, data.channel_id)
+    msg = await ch.fetch_message(int(data.message_id))
+    if data.user_id:
+        member = ctx.guild.get_member(int(data.user_id))
+        if member is None:
+            member = await ctx.guild.fetch_member(int(data.user_id))
+        await msg.remove_reaction(data.emoji, member)
+    else:
+        await msg.remove_reaction(data.emoji, ctx.guild.me)
+    return {"message_id": str(msg.id), "emoji": data.emoji, "removed": True}
+
+
+ActionRegistry.register(
+    ActionDefinition(
+        type="remove_reaction",
+        description="Removes a reaction from a message (own reaction, or another user's with manage_messages).",
+        input_schema=RemoveReactionInput,
+        required_bot_permissions=discord.Permissions(add_reactions=True, read_message_history=True),
+        required_user_permissions=discord.Permissions(add_reactions=True),
+        risk_level=RiskLevel.LOW,
+        confirmation_policy=ConfirmationPolicy.NOT_REQUIRED,
+        handler=remove_reaction_handler,
+    )
+)
+
+
+class CreatePollInput(BaseModel):
+    channel_id: str
+    question: str = Field(..., min_length=1, max_length=300)
+    answers: list[str] = Field(..., min_length=2, max_length=10)
+    duration_hours: Literal[1, 24, 72, 168] = 24
+    multiple: bool = False
+
+
+async def create_poll_handler(ctx, data: CreatePollInput):
+    ch = await resolve_text_channel(ctx.guild, data.channel_id)
+    if not hasattr(ch, "send"):
+        raise ValueError(f"Channel {data.channel_id} cannot receive messages.")
+    poll = discord.Poll(
+        question=data.question,
+        duration=timedelta(hours=data.duration_hours),
+        multiple=data.multiple,
+    )
+    for answer in data.answers:
+        text = (answer or "").strip()
+        if not text:
+            continue
+        poll.add_answer(text=text[:55])
+    if len(poll.answers) < 2:
+        raise ValueError("A poll needs at least two non-empty answers.")
+    msg = await ch.send(poll=poll)
+    return {"message_id": str(msg.id), "channel_id": str(ch.id), "poll": True}
+
+
+ActionRegistry.register(
+    ActionDefinition(
+        type="create_poll",
+        description=(
+            "Creates a native Discord poll in a channel. duration_hours must be 1, 24, 72, or 168."
+        ),
+        input_schema=CreatePollInput,
+        required_bot_permissions=discord.Permissions(send_messages=True, send_polls=True),
+        required_user_permissions=discord.Permissions(send_messages=True),
+        risk_level=RiskLevel.LOW,
+        confirmation_policy=ConfirmationPolicy.NOT_REQUIRED,
+        handler=create_poll_handler,
+    )
+)
+
+
+class PublishMessageInput(BaseModel):
+    channel_id: str
+    message_id: str
+
+
+async def publish_message_handler(ctx, data: PublishMessageInput):
+    ch = await resolve_text_channel(ctx.guild, data.channel_id)
+    msg = await ch.fetch_message(int(data.message_id))
+    await msg.publish()
+    return {"message_id": str(msg.id), "published": True}
+
+
+ActionRegistry.register(
+    ActionDefinition(
+        type="publish_message",
+        description="Crossposts / publishes a message in an Announcement (news) channel.",
+        input_schema=PublishMessageInput,
+        required_bot_permissions=discord.Permissions(send_messages=True, manage_messages=True),
+        required_user_permissions=discord.Permissions(manage_messages=True),
+        risk_level=RiskLevel.LOW,
+        confirmation_policy=ConfirmationPolicy.NOT_REQUIRED,
+        handler=publish_message_handler,
     )
 )

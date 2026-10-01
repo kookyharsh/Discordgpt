@@ -260,6 +260,7 @@ async def execute_scheduled_job(schedule_id: str) -> None:
         guild=guild,
         actor_member=actor,
         settings=settings,
+        bot=_bot,
     )
     try:
         async with AsyncSessionLocal() as session:

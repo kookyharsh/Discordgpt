@@ -6,6 +6,17 @@ def test_create_channel():
     assert r == {"action": "create_channel", "parameters": {"name": "welcome", "type": "text"}}
 
 
+def test_create_typed_channel():
+    assert FallbackParser.parse("create a voice channel named harsh") == {
+        "action": "create_channel",
+        "parameters": {"name": "harsh", "type": "voice"},
+    }
+    assert FallbackParser.parse("create a stage channel named ama") == {
+        "action": "create_channel",
+        "parameters": {"name": "ama", "type": "stage"},
+    }
+
+
 def test_timeout_with_duration():
     r = FallbackParser.parse("timeout <@123456789012345678> for 10 m")
     assert r is not None

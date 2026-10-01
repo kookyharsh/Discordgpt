@@ -51,6 +51,21 @@ async def test_ask_clarification_maps(monkeypatch):
     assert "Which channel" in out["question"]
 
 
+async def test_low_confidence_ask_clarification_is_not_misreported(monkeypatch):
+    _with_response(
+        monkeypatch,
+        {
+            "function_calls": [
+                {"name": "ask_clarification", "arguments": {"question": "Which channel?"}}
+            ],
+            "confidence": 0.0,
+        },
+    )
+    out = await na.parse_with_needle("something vague")
+    assert out["status"] == "clarification_required"
+    assert out["question"] == "Which channel?"
+
+
 async def test_single_real_call_is_direct(monkeypatch):
     _with_response(
         monkeypatch,

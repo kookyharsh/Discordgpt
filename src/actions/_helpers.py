@@ -95,3 +95,75 @@ async def resolve_category(guild: discord.Guild, category_id: str | None):
     if not isinstance(ch, discord.CategoryChannel):
         raise ValueError(f"Category {category_id} not found or is not a category.")
     return ch
+
+
+async def resolve_thread(guild: discord.Guild, thread_id: str) -> discord.Thread:
+    tid = coerce_snowflake(thread_id, "thread")
+    thread = guild.get_thread(tid)
+    if thread is None:
+        ch = await resolve_guild_channel(guild, thread_id)
+        if not isinstance(ch, discord.Thread):
+            raise ValueError(f"Thread {thread_id} not found.")
+        thread = ch
+    return thread
+
+
+def bot_client(ctx) -> discord.Client:
+    """Best-effort Discord client from execution context or guild state."""
+    bot = getattr(ctx, "bot", None)
+    if bot is not None:
+        return bot
+    state = getattr(ctx.guild, "_state", None)
+    client = getattr(state, "client", None) if state is not None else None
+    if client is None:
+        raise ValueError("Bot client is not available for this action.")
+    return client
+
+
+async def fetch_url_bytes(url: str, *, max_bytes: int = 8 * 1024 * 1024) -> bytes:
+    text = (url or "").strip()
+    if not text.startswith(("http://", "https://")):
+        raise ValueError("URL must start with http:// or https://.")
+    import aiohttp
+
+    timeout = aiohttp.ClientTimeout(total=20)
+    async with aiohttp.ClientSession(timeout=timeout) as session, session.get(text) as resp:
+        if resp.status != 200:
+            raise ValueError(f"Could not download file (HTTP {resp.status}).")
+        data = await resp.read()
+    if len(data) > max_bytes:
+        raise ValueError(f"File is too large (max {max_bytes} bytes).")
+    return data
+
+
+def parse_color(value: str | None) -> discord.Color | None:
+    if not value:
+        return None
+    try:
+        return discord.Color(int(value.replace("#", ""), 16))
+    except ValueError:
+        return None
+
+
+def permissions_from_names(names: list[str]) -> discord.Permissions:
+    perms = discord.Permissions.none()
+    unknown: list[str] = []
+    for name in names:
+        key = (name or "").strip()
+        if not key:
+            continue
+        if not hasattr(discord.Permissions, key):
+            unknown.append(key)
+            continue
+        setattr(perms, key, True)
+    if unknown:
+        raise ValueError(f"Unknown permission name(s): {', '.join(unknown[:8])}.")
+    return perms
+
+
+async def find_guild_webhook(guild: discord.Guild, webhook_id: str) -> discord.Webhook:
+    wid = str(coerce_snowflake(webhook_id, "webhook"))
+    for hook in await guild.webhooks():
+        if str(hook.id) == wid:
+            return hook
+    raise ValueError(f"Webhook {webhook_id} not found.")

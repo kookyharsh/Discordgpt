@@ -1,5 +1,326 @@
 [
   {
+    "name": "list_automod_rules",
+    "description": "Lists AutoMod rules in the guild.",
+    "parameters": {
+      "properties": {},
+      "title": "ListAutomodRulesInput",
+      "type": "object"
+    },
+    "risk_level": "LOW",
+    "confirmation_policy": "NOT_REQUIRED"
+  },
+  {
+    "name": "create_automod_rule",
+    "description": "Creates a mention-spam, keyword-preset, or member-profile AutoMod rule.",
+    "parameters": {
+      "properties": {
+        "name": {
+          "maxLength": 100,
+          "minLength": 1,
+          "title": "Name",
+          "type": "string"
+        },
+        "variant": {
+          "enum": [
+            "mention_spam",
+            "keyword_preset",
+            "member_profile"
+          ],
+          "title": "Variant",
+          "type": "string"
+        },
+        "limit": {
+          "default": 5,
+          "maximum": 50,
+          "minimum": 1,
+          "title": "Limit",
+          "type": "integer"
+        },
+        "presets": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 3,
+          "title": "Presets",
+          "type": "array"
+        },
+        "keywords": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 20,
+          "title": "Keywords",
+          "type": "array"
+        },
+        "actions": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 3,
+          "title": "Actions",
+          "type": "array"
+        },
+        "reason": {
+          "anyOf": [
+            {
+              "maxLength": 512,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Reason"
+        }
+      },
+      "required": [
+        "name",
+        "variant"
+      ],
+      "title": "CreateAutomodVariantInput",
+      "type": "object"
+    },
+    "risk_level": "MEDIUM",
+    "confirmation_policy": "NOT_REQUIRED"
+  },
+  {
+    "name": "edit_automod_rule",
+    "description": "Enables, disables, or renames an existing AutoMod rule.",
+    "parameters": {
+      "properties": {
+        "rule_id": {
+          "title": "Rule Id",
+          "type": "string"
+        },
+        "enabled": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Enabled"
+        },
+        "name": {
+          "anyOf": [
+            {
+              "maxLength": 100,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Name"
+        },
+        "reason": {
+          "anyOf": [
+            {
+              "maxLength": 512,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Reason"
+        }
+      },
+      "required": [
+        "rule_id"
+      ],
+      "title": "EditAutomodRuleInput",
+      "type": "object"
+    },
+    "risk_level": "MEDIUM",
+    "confirmation_policy": "NOT_REQUIRED"
+  },
+  {
+    "name": "create_keyword_rule",
+    "description": "Creates an AutoMod keyword block rule.",
+    "parameters": {
+      "properties": {
+        "name": {
+          "maxLength": 100,
+          "minLength": 1,
+          "title": "Name",
+          "type": "string"
+        },
+        "keywords": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 20,
+          "minItems": 1,
+          "title": "Keywords",
+          "type": "array"
+        },
+        "reason": {
+          "anyOf": [
+            {
+              "maxLength": 512,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Reason"
+        }
+      },
+      "required": [
+        "name",
+        "keywords"
+      ],
+      "title": "CreateKeywordRuleInput",
+      "type": "object"
+    },
+    "risk_level": "MEDIUM",
+    "confirmation_policy": "NOT_REQUIRED"
+  },
+  {
+    "name": "delete_automod_rule",
+    "description": "Deletes an AutoMod rule by ID.",
+    "parameters": {
+      "properties": {
+        "rule_id": {
+          "title": "Rule Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "rule_id"
+      ],
+      "title": "DeleteAutomodRuleInput",
+      "type": "object"
+    },
+    "risk_level": "MEDIUM",
+    "confirmation_policy": "NOT_REQUIRED"
+  },
+  {
+    "name": "get_audit_log",
+    "description": "Reads the Discord audit log with optional limit, actor, and action filters; this is Discord telemetry, not the bot's prompt-audit database.",
+    "parameters": {
+      "properties": {
+        "limit": {
+          "default": 25,
+          "maximum": 100,
+          "minimum": 1,
+          "title": "Limit",
+          "type": "integer"
+        },
+        "user_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "User Id"
+        },
+        "action": {
+          "anyOf": [
+            {
+              "maxLength": 64,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Action"
+        }
+      },
+      "title": "GetAuditLogInput",
+      "type": "object"
+    },
+    "risk_level": "LOW",
+    "confirmation_policy": "NOT_REQUIRED"
+  },
+  {
+    "name": "prune_members",
+    "description": "Previews or executes pruning inactive members; execute=true is destructive and requires confirmation.",
+    "parameters": {
+      "properties": {
+        "days": {
+          "maximum": 30,
+          "minimum": 1,
+          "title": "Days",
+          "type": "integer"
+        },
+        "execute": {
+          "default": false,
+          "title": "Execute",
+          "type": "boolean"
+        },
+        "reason": {
+          "anyOf": [
+            {
+              "maxLength": 512,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Reason"
+        }
+      },
+      "required": [
+        "days"
+      ],
+      "title": "PruneMembersInput",
+      "type": "object"
+    },
+    "risk_level": "HIGH",
+    "confirmation_policy": "REQUIRED"
+  },
+  {
+    "name": "set_bot_presence",
+    "description": "Sets the bot's Discord status and optional playing activity.",
+    "parameters": {
+      "properties": {
+        "activity": {
+          "anyOf": [
+            {
+              "maxLength": 128,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Activity"
+        },
+        "status": {
+          "default": "online",
+          "pattern": "^(online|idle|dnd|invisible|offline)$",
+          "title": "Status",
+          "type": "string"
+        }
+      },
+      "title": "SetPresenceInput",
+      "type": "object"
+    },
+    "risk_level": "MEDIUM",
+    "confirmation_policy": "NOT_REQUIRED"
+  },
+  {
     "name": "create_channel",
     "description": "Creates a new text, voice, category, or forum channel.",
     "parameters": {
@@ -16,7 +337,9 @@
             "text",
             "voice",
             "category",
-            "forum"
+            "forum",
+            "announcement",
+            "stage"
           ],
           "title": "Type",
           "type": "string"
@@ -58,6 +381,34 @@
           ],
           "default": null,
           "title": "Reason"
+        },
+        "bitrate": {
+          "anyOf": [
+            {
+              "maximum": 384000,
+              "minimum": 8000,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Bitrate"
+        },
+        "user_limit": {
+          "anyOf": [
+            {
+              "maximum": 99,
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "User Limit"
         }
       },
       "required": [
@@ -468,92 +819,16 @@
     "confirmation_policy": "NOT_REQUIRED"
   },
   {
-    "name": "create_role",
-    "description": "Creates a new role in the server.",
+    "name": "delete_channel_permission",
+    "description": "Deletes a role or member permission overwrite from a channel.",
     "parameters": {
       "properties": {
-        "name": {
-          "maxLength": 100,
-          "title": "Name",
+        "channel_id": {
+          "title": "Channel Id",
           "type": "string"
         },
-        "color": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Color"
-        },
-        "hoist": {
-          "anyOf": [
-            {
-              "type": "boolean"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Hoist"
-        },
-        "mentionable": {
-          "anyOf": [
-            {
-              "type": "boolean"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Mentionable"
-        }
-      },
-      "required": [
-        "name"
-      ],
-      "title": "CreateRoleInput",
-      "type": "object"
-    },
-    "risk_level": "MEDIUM",
-    "confirmation_policy": "NOT_REQUIRED"
-  },
-  {
-    "name": "assign_role",
-    "description": "Assigns a role to a member.",
-    "parameters": {
-      "properties": {
-        "member_id": {
-          "title": "Member Id",
-          "type": "string"
-        },
-        "role_id": {
-          "title": "Role Id",
-          "type": "string"
-        }
-      },
-      "required": [
-        "member_id",
-        "role_id"
-      ],
-      "title": "AssignRoleInput",
-      "type": "object"
-    },
-    "risk_level": "MEDIUM",
-    "confirmation_policy": "NOT_REQUIRED"
-  },
-  {
-    "name": "delete_role",
-    "description": "Deletes a role from the guild.",
-    "parameters": {
-      "properties": {
-        "role_id": {
-          "title": "Role Id",
+        "target_id": {
+          "title": "Target Id",
           "type": "string"
         },
         "reason": {
@@ -571,45 +846,216 @@
         }
       },
       "required": [
-        "role_id"
+        "channel_id",
+        "target_id"
       ],
-      "title": "DeleteRoleInput",
-      "type": "object"
-    },
-    "risk_level": "HIGH",
-    "confirmation_policy": "REQUIRED"
-  },
-  {
-    "name": "remove_role",
-    "description": "Removes a role from a guild member.",
-    "parameters": {
-      "properties": {
-        "member_id": {
-          "title": "Member Id",
-          "type": "string"
-        },
-        "role_id": {
-          "title": "Role Id",
-          "type": "string"
-        }
-      },
-      "required": [
-        "member_id",
-        "role_id"
-      ],
-      "title": "RemoveRoleInput",
+      "title": "DeleteChannelPermissionInput",
       "type": "object"
     },
     "risk_level": "MEDIUM",
     "confirmation_policy": "NOT_REQUIRED"
   },
   {
-    "name": "edit_role",
-    "description": "Edits a role name, color, hoist, or mentionable flag.",
+    "name": "list_emojis",
+    "description": "Lists custom emojis in the guild.",
+    "parameters": {
+      "properties": {},
+      "title": "ListEmojisInput",
+      "type": "object"
+    },
+    "risk_level": "LOW",
+    "confirmation_policy": "NOT_REQUIRED"
+  },
+  {
+    "name": "edit_emoji",
+    "description": "Renames a custom guild emoji.",
     "parameters": {
       "properties": {
-        "role_id": {
-          "title": "Role Id",
+        "emoji_id": {
+          "title": "Emoji Id",
+          "type": "string"
+        },
+        "name": {
+          "anyOf": [
+            {
+              "maxLength": 32,
+              "minLength": 2,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Name"
+        },
+        "reason": {
+          "anyOf": [
+            {
+              "maxLength": 512,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Reason"
+        }
+      },
+      "required": [
+        "emoji_id"
+      ],
+      "title": "EditEmojiInput",
+      "type": "object"
+    },
+    "risk_level": "LOW",
+    "confirmation_policy": "NOT_REQUIRED"
+  },
+  {
+    "name": "create_emoji",
+    "description": "Creates a custom emoji from base64 image data.",
+    "parameters": {
+      "properties": {
+        "name": {
+          "maxLength": 32,
+          "minLength": 2,
+          "title": "Name",
+          "type": "string"
+        },
+        "image_base64": {
+          "description": "PNG/JPEG bytes, base64-encoded, max 256KB",
+          "title": "Image Base64",
+          "type": "string"
+        },
+        "reason": {
+          "anyOf": [
+            {
+              "maxLength": 512,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Reason"
+        }
+      },
+      "required": [
+        "name",
+        "image_base64"
+      ],
+      "title": "CreateEmojiInput",
+      "type": "object"
+    },
+    "risk_level": "LOW",
+    "confirmation_policy": "NOT_REQUIRED"
+  },
+  {
+    "name": "delete_emoji",
+    "description": "Deletes a custom emoji by ID.",
+    "parameters": {
+      "properties": {
+        "emoji_id": {
+          "title": "Emoji Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "emoji_id"
+      ],
+      "title": "DeleteEmojiInput",
+      "type": "object"
+    },
+    "risk_level": "MEDIUM",
+    "confirmation_policy": "NOT_REQUIRED"
+  },
+  {
+    "name": "create_scheduled_event",
+    "description": "Creates a scheduled event (voice if channel_id given, else external).",
+    "parameters": {
+      "properties": {
+        "name": {
+          "maxLength": 100,
+          "minLength": 1,
+          "title": "Name",
+          "type": "string"
+        },
+        "start_time": {
+          "format": "date-time",
+          "title": "Start Time",
+          "type": "string"
+        },
+        "description": {
+          "anyOf": [
+            {
+              "maxLength": 1000,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Description"
+        },
+        "channel_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Channel Id"
+        },
+        "end_time": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "End Time"
+        },
+        "reason": {
+          "anyOf": [
+            {
+              "maxLength": 512,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Reason"
+        }
+      },
+      "required": [
+        "name",
+        "start_time"
+      ],
+      "title": "CreateScheduledEventInput",
+      "type": "object"
+    },
+    "risk_level": "LOW",
+    "confirmation_policy": "NOT_REQUIRED"
+  },
+  {
+    "name": "edit_scheduled_event",
+    "description": "Edits a scheduled event's name, description, time, or channel.",
+    "parameters": {
+      "properties": {
+        "event_id": {
+          "title": "Event Id",
           "type": "string"
         },
         "name": {
@@ -626,7 +1072,46 @@
           "default": null,
           "title": "Name"
         },
-        "color": {
+        "description": {
+          "anyOf": [
+            {
+              "maxLength": 1000,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Description"
+        },
+        "start_time": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Start Time"
+        },
+        "end_time": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "End Time"
+        },
+        "channel_id": {
           "anyOf": [
             {
               "type": "string"
@@ -636,31 +1121,7 @@
             }
           ],
           "default": null,
-          "title": "Color"
-        },
-        "hoist": {
-          "anyOf": [
-            {
-              "type": "boolean"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Hoist"
-        },
-        "mentionable": {
-          "anyOf": [
-            {
-              "type": "boolean"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Mentionable"
+          "title": "Channel Id"
         },
         "reason": {
           "anyOf": [
@@ -677,12 +1138,641 @@
         }
       },
       "required": [
-        "role_id"
+        "event_id"
       ],
-      "title": "EditRoleInput",
+      "title": "EditScheduledEventInput",
+      "type": "object"
+    },
+    "risk_level": "MEDIUM",
+    "confirmation_policy": "NOT_REQUIRED"
+  },
+  {
+    "name": "list_scheduled_event_users",
+    "description": "Lists users interested in a scheduled event.",
+    "parameters": {
+      "properties": {
+        "event_id": {
+          "title": "Event Id",
+          "type": "string"
+        },
+        "limit": {
+          "default": 25,
+          "maximum": 100,
+          "minimum": 1,
+          "title": "Limit",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "event_id"
+      ],
+      "title": "ListScheduledEventUsersInput",
       "type": "object"
     },
     "risk_level": "LOW",
+    "confirmation_policy": "NOT_REQUIRED"
+  },
+  {
+    "name": "list_scheduled_events",
+    "description": "Lists scheduled events in the guild.",
+    "parameters": {
+      "properties": {},
+      "title": "ListScheduledEventsInput",
+      "type": "object"
+    },
+    "risk_level": "LOW",
+    "confirmation_policy": "NOT_REQUIRED"
+  },
+  {
+    "name": "delete_scheduled_event",
+    "description": "Deletes a scheduled event by ID.",
+    "parameters": {
+      "properties": {
+        "event_id": {
+          "title": "Event Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "event_id"
+      ],
+      "title": "DeleteScheduledEventInput",
+      "type": "object"
+    },
+    "risk_level": "MEDIUM",
+    "confirmation_policy": "NOT_REQUIRED"
+  },
+  {
+    "name": "create_forum_post",
+    "description": "Creates a forum post with initial content and optional applied forum tags.",
+    "parameters": {
+      "properties": {
+        "channel_id": {
+          "title": "Channel Id",
+          "type": "string"
+        },
+        "name": {
+          "maxLength": 100,
+          "minLength": 1,
+          "title": "Name",
+          "type": "string"
+        },
+        "content": {
+          "maxLength": 2000,
+          "minLength": 1,
+          "title": "Content",
+          "type": "string"
+        },
+        "applied_tag_ids": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 5,
+          "title": "Applied Tag Ids",
+          "type": "array"
+        }
+      },
+      "required": [
+        "channel_id",
+        "name",
+        "content"
+      ],
+      "title": "CreateForumPostInput",
+      "type": "object"
+    },
+    "risk_level": "LOW",
+    "confirmation_policy": "NOT_REQUIRED"
+  },
+  {
+    "name": "list_forum_tags",
+    "description": "Lists available tags for a forum channel.",
+    "parameters": {
+      "properties": {
+        "channel_id": {
+          "title": "Channel Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "channel_id"
+      ],
+      "title": "ListForumTagsInput",
+      "type": "object"
+    },
+    "risk_level": "LOW",
+    "confirmation_policy": "NOT_REQUIRED"
+  },
+  {
+    "name": "set_forum_tags",
+    "description": "Replaces the applied tags on a forum post.",
+    "parameters": {
+      "properties": {
+        "thread_id": {
+          "title": "Thread Id",
+          "type": "string"
+        },
+        "tag_ids": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 5,
+          "title": "Tag Ids",
+          "type": "array"
+        }
+      },
+      "required": [
+        "thread_id"
+      ],
+      "title": "SetForumTagsInput",
+      "type": "object"
+    },
+    "risk_level": "LOW",
+    "confirmation_policy": "NOT_REQUIRED"
+  },
+  {
+    "name": "add_thread_member",
+    "description": "Adds a user to or from a Discord thread by ID.",
+    "parameters": {
+      "properties": {
+        "thread_id": {
+          "title": "Thread Id",
+          "type": "string"
+        },
+        "user_id": {
+          "title": "User Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "thread_id",
+        "user_id"
+      ],
+      "title": "ThreadMemberInput",
+      "type": "object"
+    },
+    "risk_level": "MEDIUM",
+    "confirmation_policy": "NOT_REQUIRED"
+  },
+  {
+    "name": "remove_thread_member",
+    "description": "Removes a user to or from a Discord thread by ID.",
+    "parameters": {
+      "properties": {
+        "thread_id": {
+          "title": "Thread Id",
+          "type": "string"
+        },
+        "user_id": {
+          "title": "User Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "thread_id",
+        "user_id"
+      ],
+      "title": "ThreadMemberInput",
+      "type": "object"
+    },
+    "risk_level": "MEDIUM",
+    "confirmation_policy": "NOT_REQUIRED"
+  },
+  {
+    "name": "get_guild_info",
+    "description": "Returns basic guild info: name, member/channel/role counts.",
+    "parameters": {
+      "properties": {},
+      "title": "GetGuildInfoInput",
+      "type": "object"
+    },
+    "risk_level": "LOW",
+    "confirmation_policy": "NOT_REQUIRED"
+  },
+  {
+    "name": "get_welcome_screen",
+    "description": "Reads the guild welcome screen and configured welcome channels.",
+    "parameters": {
+      "properties": {},
+      "title": "GetWelcomeScreenInput",
+      "type": "object"
+    },
+    "risk_level": "LOW",
+    "confirmation_policy": "NOT_REQUIRED"
+  },
+  {
+    "name": "edit_welcome_screen",
+    "description": "Edits the guild welcome screen description or enabled state.",
+    "parameters": {
+      "properties": {
+        "description": {
+          "anyOf": [
+            {
+              "maxLength": 140,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Description"
+        },
+        "enabled": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Enabled"
+        },
+        "reason": {
+          "anyOf": [
+            {
+              "maxLength": 512,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Reason"
+        }
+      },
+      "title": "EditWelcomeScreenInput",
+      "type": "object"
+    },
+    "risk_level": "MEDIUM",
+    "confirmation_policy": "NOT_REQUIRED"
+  },
+  {
+    "name": "get_onboarding",
+    "description": "Reads guild onboarding settings and prompts.",
+    "parameters": {
+      "properties": {},
+      "title": "GetOnboardingInput",
+      "type": "object"
+    },
+    "risk_level": "LOW",
+    "confirmation_policy": "NOT_REQUIRED"
+  },
+  {
+    "name": "edit_onboarding",
+    "description": "Enables or disables guild onboarding while preserving its existing prompts and default channels.",
+    "parameters": {
+      "properties": {
+        "enabled": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Enabled"
+        },
+        "reason": {
+          "anyOf": [
+            {
+              "maxLength": 512,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Reason"
+        }
+      },
+      "title": "EditOnboardingInput",
+      "type": "object"
+    },
+    "risk_level": "MEDIUM",
+    "confirmation_policy": "NOT_REQUIRED"
+  },
+  {
+    "name": "get_widget",
+    "description": "Reads the guild widget enabled state and channel.",
+    "parameters": {
+      "properties": {},
+      "title": "GetWidgetInput",
+      "type": "object"
+    },
+    "risk_level": "LOW",
+    "confirmation_policy": "NOT_REQUIRED"
+  },
+  {
+    "name": "edit_widget",
+    "description": "Edits guild widget visibility and optional widget channel.",
+    "parameters": {
+      "properties": {
+        "enabled": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Enabled"
+        },
+        "channel_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Channel Id"
+        },
+        "reason": {
+          "anyOf": [
+            {
+              "maxLength": 512,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Reason"
+        }
+      },
+      "title": "EditWidgetInput",
+      "type": "object"
+    },
+    "risk_level": "MEDIUM",
+    "confirmation_policy": "NOT_REQUIRED"
+  },
+  {
+    "name": "get_vanity_url",
+    "description": "Reads the guild vanity invite when the guild is eligible for one.",
+    "parameters": {
+      "properties": {},
+      "title": "GetVanityInput",
+      "type": "object"
+    },
+    "risk_level": "LOW",
+    "confirmation_policy": "NOT_REQUIRED"
+  },
+  {
+    "name": "list_integrations",
+    "description": "Lists guild integrations such as Twitch or YouTube connections.",
+    "parameters": {
+      "properties": {},
+      "title": "ListIntegrationsInput",
+      "type": "object"
+    },
+    "risk_level": "LOW",
+    "confirmation_policy": "NOT_REQUIRED"
+  },
+  {
+    "name": "list_templates",
+    "description": "Lists server templates associated with the guild.",
+    "parameters": {
+      "properties": {},
+      "title": "ListTemplatesInput",
+      "type": "object"
+    },
+    "risk_level": "LOW",
+    "confirmation_policy": "NOT_REQUIRED"
+  },
+  {
+    "name": "create_template",
+    "description": "Creates a reusable server template from the current guild.",
+    "parameters": {
+      "properties": {
+        "name": {
+          "maxLength": 100,
+          "minLength": 1,
+          "title": "Name",
+          "type": "string"
+        },
+        "description": {
+          "anyOf": [
+            {
+              "maxLength": 120,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Description"
+        }
+      },
+      "required": [
+        "name"
+      ],
+      "title": "CreateTemplateInput",
+      "type": "object"
+    },
+    "risk_level": "MEDIUM",
+    "confirmation_policy": "NOT_REQUIRED"
+  },
+  {
+    "name": "sync_template",
+    "description": "Syncs a Discord server template with the current guild.",
+    "parameters": {
+      "properties": {
+        "code": {
+          "maxLength": 64,
+          "minLength": 2,
+          "title": "Code",
+          "type": "string"
+        }
+      },
+      "required": [
+        "code"
+      ],
+      "title": "TemplateCodeInput",
+      "type": "object"
+    },
+    "risk_level": "MEDIUM",
+    "confirmation_policy": "NOT_REQUIRED"
+  },
+  {
+    "name": "delete_template",
+    "description": "Deletes a Discord server template by template code.",
+    "parameters": {
+      "properties": {
+        "code": {
+          "maxLength": 64,
+          "minLength": 2,
+          "title": "Code",
+          "type": "string"
+        }
+      },
+      "required": [
+        "code"
+      ],
+      "title": "TemplateCodeInput",
+      "type": "object"
+    },
+    "risk_level": "HIGH",
+    "confirmation_policy": "REQUIRED"
+  },
+  {
+    "name": "edit_guild",
+    "description": "Edits guild name and/or description.",
+    "parameters": {
+      "properties": {
+        "name": {
+          "anyOf": [
+            {
+              "maxLength": 100,
+              "minLength": 2,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Name"
+        },
+        "description": {
+          "anyOf": [
+            {
+              "maxLength": 500,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Description"
+        },
+        "reason": {
+          "anyOf": [
+            {
+              "maxLength": 512,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Reason"
+        }
+      },
+      "title": "EditGuildInput",
+      "type": "object"
+    },
+    "risk_level": "MEDIUM",
+    "confirmation_policy": "NOT_REQUIRED"
+  },
+  {
+    "name": "list_bans",
+    "description": "Lists banned users in the guild.",
+    "parameters": {
+      "properties": {
+        "limit": {
+          "default": 50,
+          "maximum": 200,
+          "minimum": 1,
+          "title": "Limit",
+          "type": "integer"
+        }
+      },
+      "title": "ListBansInput",
+      "type": "object"
+    },
+    "risk_level": "LOW",
+    "confirmation_policy": "NOT_REQUIRED"
+  },
+  {
+    "name": "create_invite",
+    "description": "Creates a server invite for a channel (max_age/max_uses 0 = unlimited).",
+    "parameters": {
+      "properties": {
+        "channel_id": {
+          "title": "Channel Id",
+          "type": "string"
+        },
+        "max_age": {
+          "default": 0,
+          "maximum": 604800,
+          "minimum": 0,
+          "title": "Max Age",
+          "type": "integer"
+        },
+        "max_uses": {
+          "default": 0,
+          "maximum": 100,
+          "minimum": 0,
+          "title": "Max Uses",
+          "type": "integer"
+        },
+        "reason": {
+          "anyOf": [
+            {
+              "maxLength": 512,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Reason"
+        }
+      },
+      "required": [
+        "channel_id"
+      ],
+      "title": "CreateInviteInput",
+      "type": "object"
+    },
+    "risk_level": "LOW",
+    "confirmation_policy": "NOT_REQUIRED"
+  },
+  {
+    "name": "list_invites",
+    "description": "Lists active server invites.",
+    "parameters": {
+      "properties": {},
+      "title": "ListInvitesInput",
+      "type": "object"
+    },
+    "risk_level": "LOW",
+    "confirmation_policy": "NOT_REQUIRED"
+  },
+  {
+    "name": "delete_invite",
+    "description": "Deletes a server invite by code.",
+    "parameters": {
+      "properties": {
+        "code": {
+          "maxLength": 32,
+          "minLength": 2,
+          "title": "Code",
+          "type": "string"
+        }
+      },
+      "required": [
+        "code"
+      ],
+      "title": "DeleteInviteInput",
+      "type": "object"
+    },
+    "risk_level": "MEDIUM",
     "confirmation_policy": "NOT_REQUIRED"
   },
   {
@@ -1029,7 +2119,7 @@
   },
   {
     "name": "send_message",
-    "description": "Sends a text message to a channel.",
+    "description": "Sends a message to a channel. Optional embed_title/embed_description, reply_to_message_id, attachment_url, or sticker_id.",
     "parameters": {
       "properties": {
         "channel_id": {
@@ -1037,15 +2127,96 @@
           "type": "string"
         },
         "content": {
-          "maxLength": 2000,
-          "minLength": 1,
-          "title": "Content",
-          "type": "string"
+          "anyOf": [
+            {
+              "maxLength": 2000,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Content"
+        },
+        "reply_to_message_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Reply To Message Id"
+        },
+        "embed_title": {
+          "anyOf": [
+            {
+              "maxLength": 256,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Embed Title"
+        },
+        "embed_description": {
+          "anyOf": [
+            {
+              "maxLength": 4096,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Embed Description"
+        },
+        "embed_color": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Embed Color"
+        },
+        "attachment_url": {
+          "anyOf": [
+            {
+              "maxLength": 512,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Attachment Url"
+        },
+        "sticker_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Sticker Id"
         }
       },
       "required": [
-        "channel_id",
-        "content"
+        "channel_id"
       ],
       "title": "SendMessageInput",
       "type": "object"
@@ -1315,21 +2486,25 @@
     "confirmation_policy": "NOT_REQUIRED"
   },
   {
-    "name": "create_thread",
-    "description": "Creates a thread in a text channel, optionally attached to a message.",
+    "name": "remove_reaction",
+    "description": "Removes a reaction from a message (own reaction, or another user's with manage_messages).",
     "parameters": {
       "properties": {
         "channel_id": {
           "title": "Channel Id",
           "type": "string"
         },
-        "name": {
-          "maxLength": 100,
-          "minLength": 1,
-          "title": "Name",
+        "message_id": {
+          "title": "Message Id",
           "type": "string"
         },
-        "message_id": {
+        "emoji": {
+          "maxLength": 64,
+          "minLength": 1,
+          "title": "Emoji",
+          "type": "string"
+        },
+        "user_id": {
           "anyOf": [
             {
               "type": "string"
@@ -1339,125 +2514,109 @@
             }
           ],
           "default": null,
-          "title": "Message Id"
-        },
-        "auto_archive_minutes": {
-          "anyOf": [
-            {
-              "enum": [
-                60,
-                1440,
-                4320,
-                10080
-              ],
-              "type": "integer"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Auto Archive Minutes"
-        },
-        "reason": {
-          "anyOf": [
-            {
-              "maxLength": 512,
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Reason"
+          "title": "User Id"
         }
       },
       "required": [
         "channel_id",
-        "name"
+        "message_id",
+        "emoji"
       ],
-      "title": "CreateThreadInput",
+      "title": "RemoveReactionInput",
       "type": "object"
     },
     "risk_level": "LOW",
     "confirmation_policy": "NOT_REQUIRED"
   },
   {
-    "name": "archive_thread",
-    "description": "Archives or unarchives a thread.",
-    "parameters": {
-      "properties": {
-        "thread_id": {
-          "title": "Thread Id",
-          "type": "string"
-        },
-        "archived": {
-          "default": true,
-          "title": "Archived",
-          "type": "boolean"
-        },
-        "reason": {
-          "anyOf": [
-            {
-              "maxLength": 512,
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Reason"
-        }
-      },
-      "required": [
-        "thread_id"
-      ],
-      "title": "ArchiveThreadInput",
-      "type": "object"
-    },
-    "risk_level": "LOW",
-    "confirmation_policy": "NOT_REQUIRED"
-  },
-  {
-    "name": "list_active_threads",
-    "description": "Lists active threads in the guild.",
-    "parameters": {
-      "properties": {},
-      "title": "ListActiveThreadsInput",
-      "type": "object"
-    },
-    "risk_level": "LOW",
-    "confirmation_policy": "NOT_REQUIRED"
-  },
-  {
-    "name": "create_invite",
-    "description": "Creates a server invite for a channel (max_age/max_uses 0 = unlimited).",
+    "name": "create_poll",
+    "description": "Creates a native Discord poll in a channel. duration_hours must be 1, 24, 72, or 168.",
     "parameters": {
       "properties": {
         "channel_id": {
           "title": "Channel Id",
           "type": "string"
         },
-        "max_age": {
-          "default": 0,
-          "maximum": 604800,
-          "minimum": 0,
-          "title": "Max Age",
+        "question": {
+          "maxLength": 300,
+          "minLength": 1,
+          "title": "Question",
+          "type": "string"
+        },
+        "answers": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 10,
+          "minItems": 2,
+          "title": "Answers",
+          "type": "array"
+        },
+        "duration_hours": {
+          "default": 24,
+          "enum": [
+            1,
+            24,
+            72,
+            168
+          ],
+          "title": "Duration Hours",
           "type": "integer"
         },
-        "max_uses": {
-          "default": 0,
-          "maximum": 100,
-          "minimum": 0,
-          "title": "Max Uses",
-          "type": "integer"
+        "multiple": {
+          "default": false,
+          "title": "Multiple",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "channel_id",
+        "question",
+        "answers"
+      ],
+      "title": "CreatePollInput",
+      "type": "object"
+    },
+    "risk_level": "LOW",
+    "confirmation_policy": "NOT_REQUIRED"
+  },
+  {
+    "name": "publish_message",
+    "description": "Crossposts / publishes a message in an Announcement (news) channel.",
+    "parameters": {
+      "properties": {
+        "channel_id": {
+          "title": "Channel Id",
+          "type": "string"
         },
-        "reason": {
+        "message_id": {
+          "title": "Message Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "channel_id",
+        "message_id"
+      ],
+      "title": "PublishMessageInput",
+      "type": "object"
+    },
+    "risk_level": "LOW",
+    "confirmation_policy": "NOT_REQUIRED"
+  },
+  {
+    "name": "create_role",
+    "description": "Creates a new role in the server.",
+    "parameters": {
+      "properties": {
+        "name": {
+          "maxLength": 100,
+          "title": "Name",
+          "type": "string"
+        },
+        "color": {
           "anyOf": [
             {
-              "maxLength": 512,
               "type": "string"
             },
             {
@@ -1465,71 +2624,175 @@
             }
           ],
           "default": null,
-          "title": "Reason"
+          "title": "Color"
+        },
+        "hoist": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Hoist"
+        },
+        "mentionable": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Mentionable"
         }
       },
       "required": [
-        "channel_id"
+        "name"
       ],
-      "title": "CreateInviteInput",
-      "type": "object"
-    },
-    "risk_level": "LOW",
-    "confirmation_policy": "NOT_REQUIRED"
-  },
-  {
-    "name": "list_invites",
-    "description": "Lists active server invites.",
-    "parameters": {
-      "properties": {},
-      "title": "ListInvitesInput",
-      "type": "object"
-    },
-    "risk_level": "LOW",
-    "confirmation_policy": "NOT_REQUIRED"
-  },
-  {
-    "name": "delete_invite",
-    "description": "Deletes a server invite by code.",
-    "parameters": {
-      "properties": {
-        "code": {
-          "maxLength": 32,
-          "minLength": 2,
-          "title": "Code",
-          "type": "string"
-        }
-      },
-      "required": [
-        "code"
-      ],
-      "title": "DeleteInviteInput",
+      "title": "CreateRoleInput",
       "type": "object"
     },
     "risk_level": "MEDIUM",
     "confirmation_policy": "NOT_REQUIRED"
   },
   {
-    "name": "get_guild_info",
-    "description": "Returns basic guild info: name, member/channel/role counts.",
+    "name": "reorder_role",
+    "description": "Moves a manageable role to a new role position.",
     "parameters": {
-      "properties": {},
-      "title": "GetGuildInfoInput",
+      "properties": {
+        "role_id": {
+          "title": "Role Id",
+          "type": "string"
+        },
+        "position": {
+          "maximum": 250,
+          "minimum": 1,
+          "title": "Position",
+          "type": "integer"
+        },
+        "reason": {
+          "anyOf": [
+            {
+              "maxLength": 512,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Reason"
+        }
+      },
+      "required": [
+        "role_id",
+        "position"
+      ],
+      "title": "ReorderRoleInput",
       "type": "object"
     },
-    "risk_level": "LOW",
+    "risk_level": "MEDIUM",
     "confirmation_policy": "NOT_REQUIRED"
   },
   {
-    "name": "edit_guild",
-    "description": "Edits guild name and/or description.",
+    "name": "assign_role",
+    "description": "Assigns a role to a member.",
     "parameters": {
       "properties": {
+        "member_id": {
+          "title": "Member Id",
+          "type": "string"
+        },
+        "role_id": {
+          "title": "Role Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "member_id",
+        "role_id"
+      ],
+      "title": "AssignRoleInput",
+      "type": "object"
+    },
+    "risk_level": "MEDIUM",
+    "confirmation_policy": "NOT_REQUIRED"
+  },
+  {
+    "name": "delete_role",
+    "description": "Deletes a role from the guild.",
+    "parameters": {
+      "properties": {
+        "role_id": {
+          "title": "Role Id",
+          "type": "string"
+        },
+        "reason": {
+          "anyOf": [
+            {
+              "maxLength": 512,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Reason"
+        }
+      },
+      "required": [
+        "role_id"
+      ],
+      "title": "DeleteRoleInput",
+      "type": "object"
+    },
+    "risk_level": "HIGH",
+    "confirmation_policy": "REQUIRED"
+  },
+  {
+    "name": "remove_role",
+    "description": "Removes a role from a guild member.",
+    "parameters": {
+      "properties": {
+        "member_id": {
+          "title": "Member Id",
+          "type": "string"
+        },
+        "role_id": {
+          "title": "Role Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "member_id",
+        "role_id"
+      ],
+      "title": "RemoveRoleInput",
+      "type": "object"
+    },
+    "risk_level": "MEDIUM",
+    "confirmation_policy": "NOT_REQUIRED"
+  },
+  {
+    "name": "edit_role",
+    "description": "Edits a role name, color, hoist, or mentionable flag.",
+    "parameters": {
+      "properties": {
+        "role_id": {
+          "title": "Role Id",
+          "type": "string"
+        },
         "name": {
           "anyOf": [
             {
               "maxLength": 100,
-              "minLength": 2,
+              "minLength": 1,
               "type": "string"
             },
             {
@@ -1539,88 +2802,7 @@
           "default": null,
           "title": "Name"
         },
-        "description": {
-          "anyOf": [
-            {
-              "maxLength": 500,
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Description"
-        },
-        "reason": {
-          "anyOf": [
-            {
-              "maxLength": 512,
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Reason"
-        }
-      },
-      "title": "EditGuildInput",
-      "type": "object"
-    },
-    "risk_level": "MEDIUM",
-    "confirmation_policy": "NOT_REQUIRED"
-  },
-  {
-    "name": "list_bans",
-    "description": "Lists banned users in the guild.",
-    "parameters": {
-      "properties": {
-        "limit": {
-          "default": 50,
-          "maximum": 200,
-          "minimum": 1,
-          "title": "Limit",
-          "type": "integer"
-        }
-      },
-      "title": "ListBansInput",
-      "type": "object"
-    },
-    "risk_level": "LOW",
-    "confirmation_policy": "NOT_REQUIRED"
-  },
-  {
-    "name": "create_scheduled_event",
-    "description": "Creates a scheduled event (voice if channel_id given, else external).",
-    "parameters": {
-      "properties": {
-        "name": {
-          "maxLength": 100,
-          "minLength": 1,
-          "title": "Name",
-          "type": "string"
-        },
-        "start_time": {
-          "format": "date-time",
-          "title": "Start Time",
-          "type": "string"
-        },
-        "description": {
-          "anyOf": [
-            {
-              "maxLength": 1000,
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Description"
-        },
-        "channel_id": {
+        "color": {
           "anyOf": [
             {
               "type": "string"
@@ -1630,20 +2812,47 @@
             }
           ],
           "default": null,
-          "title": "Channel Id"
+          "title": "Color"
         },
-        "end_time": {
+        "hoist": {
           "anyOf": [
             {
-              "format": "date-time",
-              "type": "string"
+              "type": "boolean"
             },
             {
               "type": "null"
             }
           ],
           "default": null,
-          "title": "End Time"
+          "title": "Hoist"
+        },
+        "mentionable": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Mentionable"
+        },
+        "permissions": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "maxItems": 64,
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Permissions"
         },
         "reason": {
           "anyOf": [
@@ -1660,256 +2869,12 @@
         }
       },
       "required": [
-        "name",
-        "start_time"
+        "role_id"
       ],
-      "title": "CreateScheduledEventInput",
+      "title": "EditRoleInput",
       "type": "object"
     },
     "risk_level": "LOW",
-    "confirmation_policy": "NOT_REQUIRED"
-  },
-  {
-    "name": "list_scheduled_events",
-    "description": "Lists scheduled events in the guild.",
-    "parameters": {
-      "properties": {},
-      "title": "ListScheduledEventsInput",
-      "type": "object"
-    },
-    "risk_level": "LOW",
-    "confirmation_policy": "NOT_REQUIRED"
-  },
-  {
-    "name": "delete_scheduled_event",
-    "description": "Deletes a scheduled event by ID.",
-    "parameters": {
-      "properties": {
-        "event_id": {
-          "title": "Event Id",
-          "type": "string"
-        }
-      },
-      "required": [
-        "event_id"
-      ],
-      "title": "DeleteScheduledEventInput",
-      "type": "object"
-    },
-    "risk_level": "MEDIUM",
-    "confirmation_policy": "NOT_REQUIRED"
-  },
-  {
-    "name": "list_automod_rules",
-    "description": "Lists AutoMod rules in the guild.",
-    "parameters": {
-      "properties": {},
-      "title": "ListAutomodRulesInput",
-      "type": "object"
-    },
-    "risk_level": "LOW",
-    "confirmation_policy": "NOT_REQUIRED"
-  },
-  {
-    "name": "create_keyword_rule",
-    "description": "Creates an AutoMod keyword block rule.",
-    "parameters": {
-      "properties": {
-        "name": {
-          "maxLength": 100,
-          "minLength": 1,
-          "title": "Name",
-          "type": "string"
-        },
-        "keywords": {
-          "items": {
-            "type": "string"
-          },
-          "maxItems": 20,
-          "minItems": 1,
-          "title": "Keywords",
-          "type": "array"
-        },
-        "reason": {
-          "anyOf": [
-            {
-              "maxLength": 512,
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Reason"
-        }
-      },
-      "required": [
-        "name",
-        "keywords"
-      ],
-      "title": "CreateKeywordRuleInput",
-      "type": "object"
-    },
-    "risk_level": "MEDIUM",
-    "confirmation_policy": "NOT_REQUIRED"
-  },
-  {
-    "name": "delete_automod_rule",
-    "description": "Deletes an AutoMod rule by ID.",
-    "parameters": {
-      "properties": {
-        "rule_id": {
-          "title": "Rule Id",
-          "type": "string"
-        }
-      },
-      "required": [
-        "rule_id"
-      ],
-      "title": "DeleteAutomodRuleInput",
-      "type": "object"
-    },
-    "risk_level": "MEDIUM",
-    "confirmation_policy": "NOT_REQUIRED"
-  },
-  {
-    "name": "create_webhook",
-    "description": "Creates a webhook in a text channel.",
-    "parameters": {
-      "properties": {
-        "channel_id": {
-          "title": "Channel Id",
-          "type": "string"
-        },
-        "name": {
-          "maxLength": 80,
-          "minLength": 1,
-          "title": "Name",
-          "type": "string"
-        },
-        "reason": {
-          "anyOf": [
-            {
-              "maxLength": 512,
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Reason"
-        }
-      },
-      "required": [
-        "channel_id",
-        "name"
-      ],
-      "title": "CreateWebhookInput",
-      "type": "object"
-    },
-    "risk_level": "MEDIUM",
-    "confirmation_policy": "NOT_REQUIRED"
-  },
-  {
-    "name": "list_webhooks",
-    "description": "Lists webhooks in the guild.",
-    "parameters": {
-      "properties": {},
-      "title": "ListWebhooksInput",
-      "type": "object"
-    },
-    "risk_level": "LOW",
-    "confirmation_policy": "NOT_REQUIRED"
-  },
-  {
-    "name": "delete_webhook",
-    "description": "Deletes a webhook by ID.",
-    "parameters": {
-      "properties": {
-        "webhook_id": {
-          "title": "Webhook Id",
-          "type": "string"
-        }
-      },
-      "required": [
-        "webhook_id"
-      ],
-      "title": "DeleteWebhookInput",
-      "type": "object"
-    },
-    "risk_level": "MEDIUM",
-    "confirmation_policy": "NOT_REQUIRED"
-  },
-  {
-    "name": "list_emojis",
-    "description": "Lists custom emojis in the guild.",
-    "parameters": {
-      "properties": {},
-      "title": "ListEmojisInput",
-      "type": "object"
-    },
-    "risk_level": "LOW",
-    "confirmation_policy": "NOT_REQUIRED"
-  },
-  {
-    "name": "create_emoji",
-    "description": "Creates a custom emoji from base64 image data.",
-    "parameters": {
-      "properties": {
-        "name": {
-          "maxLength": 32,
-          "minLength": 2,
-          "title": "Name",
-          "type": "string"
-        },
-        "image_base64": {
-          "description": "PNG/JPEG bytes, base64-encoded, max 256KB",
-          "title": "Image Base64",
-          "type": "string"
-        },
-        "reason": {
-          "anyOf": [
-            {
-              "maxLength": 512,
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Reason"
-        }
-      },
-      "required": [
-        "name",
-        "image_base64"
-      ],
-      "title": "CreateEmojiInput",
-      "type": "object"
-    },
-    "risk_level": "LOW",
-    "confirmation_policy": "NOT_REQUIRED"
-  },
-  {
-    "name": "delete_emoji",
-    "description": "Deletes a custom emoji by ID.",
-    "parameters": {
-      "properties": {
-        "emoji_id": {
-          "title": "Emoji Id",
-          "type": "string"
-        }
-      },
-      "required": [
-        "emoji_id"
-      ],
-      "title": "DeleteEmojiInput",
-      "type": "object"
-    },
-    "risk_level": "MEDIUM",
     "confirmation_policy": "NOT_REQUIRED"
   },
   {
@@ -2001,6 +2966,703 @@
       "type": "object"
     },
     "risk_level": "LOW",
+    "confirmation_policy": "NOT_REQUIRED"
+  },
+  {
+    "name": "list_soundboard_sounds",
+    "description": "Lists custom and default soundboard sounds visible to the guild.",
+    "parameters": {
+      "properties": {},
+      "title": "ListSoundboardSoundsInput",
+      "type": "object"
+    },
+    "risk_level": "LOW",
+    "confirmation_policy": "NOT_REQUIRED"
+  },
+  {
+    "name": "create_soundboard_sound",
+    "description": "Creates a bounded custom soundboard sound; does not connect to voice or play audio streams.",
+    "parameters": {
+      "properties": {
+        "name": {
+          "maxLength": 32,
+          "minLength": 1,
+          "title": "Name",
+          "type": "string"
+        },
+        "sound_base64": {
+          "description": "MP3/OGG sound bytes, base64 encoded, max 512KB",
+          "title": "Sound Base64",
+          "type": "string"
+        },
+        "volume": {
+          "default": 1.0,
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Volume",
+          "type": "number"
+        },
+        "emoji": {
+          "anyOf": [
+            {
+              "maxLength": 2,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Emoji"
+        },
+        "reason": {
+          "anyOf": [
+            {
+              "maxLength": 512,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Reason"
+        }
+      },
+      "required": [
+        "name",
+        "sound_base64"
+      ],
+      "title": "CreateSoundboardSoundInput",
+      "type": "object"
+    },
+    "risk_level": "MEDIUM",
+    "confirmation_policy": "NOT_REQUIRED"
+  },
+  {
+    "name": "delete_soundboard_sound",
+    "description": "Deletes a custom soundboard sound by ID.",
+    "parameters": {
+      "properties": {
+        "sound_id": {
+          "title": "Sound Id",
+          "type": "string"
+        },
+        "reason": {
+          "anyOf": [
+            {
+              "maxLength": 512,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Reason"
+        }
+      },
+      "required": [
+        "sound_id"
+      ],
+      "title": "DeleteSoundboardSoundInput",
+      "type": "object"
+    },
+    "risk_level": "HIGH",
+    "confirmation_policy": "REQUIRED"
+  },
+  {
+    "name": "send_soundboard_sound",
+    "description": "Triggers a soundboard effect in a voice channel without implementing voice playback.",
+    "parameters": {
+      "properties": {
+        "channel_id": {
+          "title": "Channel Id",
+          "type": "string"
+        },
+        "sound_id": {
+          "title": "Sound Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "channel_id",
+        "sound_id"
+      ],
+      "title": "SendSoundboardSoundInput",
+      "type": "object"
+    },
+    "risk_level": "MEDIUM",
+    "confirmation_policy": "NOT_REQUIRED"
+  },
+  {
+    "name": "start_stage",
+    "description": "Starts a moderated Stage instance in a stage channel for an AMA, talk, or live event.",
+    "parameters": {
+      "properties": {
+        "channel_id": {
+          "title": "Channel Id",
+          "type": "string"
+        },
+        "topic": {
+          "maxLength": 120,
+          "minLength": 1,
+          "title": "Topic",
+          "type": "string"
+        },
+        "send_start_notification": {
+          "default": false,
+          "title": "Send Start Notification",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "channel_id",
+        "topic"
+      ],
+      "title": "StartStageInput",
+      "type": "object"
+    },
+    "risk_level": "MEDIUM",
+    "confirmation_policy": "NOT_REQUIRED"
+  },
+  {
+    "name": "edit_stage",
+    "description": "Updates the topic of the active Stage instance in a channel.",
+    "parameters": {
+      "properties": {
+        "channel_id": {
+          "title": "Channel Id",
+          "type": "string"
+        },
+        "topic": {
+          "maxLength": 120,
+          "minLength": 1,
+          "title": "Topic",
+          "type": "string"
+        }
+      },
+      "required": [
+        "channel_id",
+        "topic"
+      ],
+      "title": "EditStageInput",
+      "type": "object"
+    },
+    "risk_level": "LOW",
+    "confirmation_policy": "NOT_REQUIRED"
+  },
+  {
+    "name": "end_stage",
+    "description": "Ends the active Stage instance in a stage channel.",
+    "parameters": {
+      "properties": {
+        "channel_id": {
+          "title": "Channel Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "channel_id"
+      ],
+      "title": "EndStageInput",
+      "type": "object"
+    },
+    "risk_level": "HIGH",
+    "confirmation_policy": "REQUIRED"
+  },
+  {
+    "name": "list_stickers",
+    "description": "Lists guild stickers available for sending or management.",
+    "parameters": {
+      "properties": {},
+      "title": "ListStickersInput",
+      "type": "object"
+    },
+    "risk_level": "LOW",
+    "confirmation_policy": "NOT_REQUIRED"
+  },
+  {
+    "name": "create_sticker",
+    "description": "Creates a guild sticker from bounded base64 image data.",
+    "parameters": {
+      "properties": {
+        "name": {
+          "maxLength": 30,
+          "minLength": 2,
+          "title": "Name",
+          "type": "string"
+        },
+        "description": {
+          "maxLength": 100,
+          "minLength": 1,
+          "title": "Description",
+          "type": "string"
+        },
+        "emoji": {
+          "maxLength": 2,
+          "minLength": 1,
+          "title": "Emoji",
+          "type": "string"
+        },
+        "image_base64": {
+          "description": "PNG/APNG/Lottie bytes, base64 encoded, max 512KB",
+          "title": "Image Base64",
+          "type": "string"
+        },
+        "reason": {
+          "anyOf": [
+            {
+              "maxLength": 512,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Reason"
+        }
+      },
+      "required": [
+        "name",
+        "description",
+        "emoji",
+        "image_base64"
+      ],
+      "title": "CreateStickerInput",
+      "type": "object"
+    },
+    "risk_level": "MEDIUM",
+    "confirmation_policy": "NOT_REQUIRED"
+  },
+  {
+    "name": "delete_sticker",
+    "description": "Deletes a guild sticker by ID.",
+    "parameters": {
+      "properties": {
+        "sticker_id": {
+          "title": "Sticker Id",
+          "type": "string"
+        },
+        "reason": {
+          "anyOf": [
+            {
+              "maxLength": 512,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Reason"
+        }
+      },
+      "required": [
+        "sticker_id"
+      ],
+      "title": "DeleteStickerInput",
+      "type": "object"
+    },
+    "risk_level": "HIGH",
+    "confirmation_policy": "REQUIRED"
+  },
+  {
+    "name": "create_thread",
+    "description": "Creates a thread in a text channel, optionally attached to a message.",
+    "parameters": {
+      "properties": {
+        "channel_id": {
+          "title": "Channel Id",
+          "type": "string"
+        },
+        "name": {
+          "maxLength": 100,
+          "minLength": 1,
+          "title": "Name",
+          "type": "string"
+        },
+        "message_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Message Id"
+        },
+        "auto_archive_minutes": {
+          "anyOf": [
+            {
+              "enum": [
+                60,
+                1440,
+                4320,
+                10080
+              ],
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Auto Archive Minutes"
+        },
+        "reason": {
+          "anyOf": [
+            {
+              "maxLength": 512,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Reason"
+        }
+      },
+      "required": [
+        "channel_id",
+        "name"
+      ],
+      "title": "CreateThreadInput",
+      "type": "object"
+    },
+    "risk_level": "LOW",
+    "confirmation_policy": "NOT_REQUIRED"
+  },
+  {
+    "name": "join_thread",
+    "description": "Joins a thread as the bot.",
+    "parameters": {
+      "properties": {
+        "thread_id": {
+          "title": "Thread Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "thread_id"
+      ],
+      "title": "ThreadStateInput",
+      "type": "object"
+    },
+    "risk_level": "LOW",
+    "confirmation_policy": "NOT_REQUIRED"
+  },
+  {
+    "name": "leave_thread",
+    "description": "Leaves a thread as the bot.",
+    "parameters": {
+      "properties": {
+        "thread_id": {
+          "title": "Thread Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "thread_id"
+      ],
+      "title": "ThreadStateInput",
+      "type": "object"
+    },
+    "risk_level": "LOW",
+    "confirmation_policy": "NOT_REQUIRED"
+  },
+  {
+    "name": "list_archived_threads",
+    "description": "Lists archived threads under a text, announcement, forum, or media channel.",
+    "parameters": {
+      "properties": {
+        "channel_id": {
+          "title": "Channel Id",
+          "type": "string"
+        },
+        "limit": {
+          "default": 25,
+          "maximum": 100,
+          "minimum": 1,
+          "title": "Limit",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "channel_id"
+      ],
+      "title": "ListArchivedThreadsInput",
+      "type": "object"
+    },
+    "risk_level": "LOW",
+    "confirmation_policy": "NOT_REQUIRED"
+  },
+  {
+    "name": "archive_thread",
+    "description": "Archives or unarchives a thread.",
+    "parameters": {
+      "properties": {
+        "thread_id": {
+          "title": "Thread Id",
+          "type": "string"
+        },
+        "archived": {
+          "default": true,
+          "title": "Archived",
+          "type": "boolean"
+        },
+        "reason": {
+          "anyOf": [
+            {
+              "maxLength": 512,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Reason"
+        }
+      },
+      "required": [
+        "thread_id"
+      ],
+      "title": "ArchiveThreadInput",
+      "type": "object"
+    },
+    "risk_level": "LOW",
+    "confirmation_policy": "NOT_REQUIRED"
+  },
+  {
+    "name": "list_active_threads",
+    "description": "Lists active threads in the guild.",
+    "parameters": {
+      "properties": {},
+      "title": "ListActiveThreadsInput",
+      "type": "object"
+    },
+    "risk_level": "LOW",
+    "confirmation_policy": "NOT_REQUIRED"
+  },
+  {
+    "name": "create_webhook",
+    "description": "Creates a webhook in a text channel.",
+    "parameters": {
+      "properties": {
+        "channel_id": {
+          "title": "Channel Id",
+          "type": "string"
+        },
+        "name": {
+          "maxLength": 80,
+          "minLength": 1,
+          "title": "Name",
+          "type": "string"
+        },
+        "reason": {
+          "anyOf": [
+            {
+              "maxLength": 512,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Reason"
+        }
+      },
+      "required": [
+        "channel_id",
+        "name"
+      ],
+      "title": "CreateWebhookInput",
+      "type": "object"
+    },
+    "risk_level": "MEDIUM",
+    "confirmation_policy": "NOT_REQUIRED"
+  },
+  {
+    "name": "edit_webhook",
+    "description": "Edits a webhook name or moves it to another channel.",
+    "parameters": {
+      "properties": {
+        "webhook_id": {
+          "title": "Webhook Id",
+          "type": "string"
+        },
+        "name": {
+          "anyOf": [
+            {
+              "maxLength": 80,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Name"
+        },
+        "channel_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Channel Id"
+        },
+        "reason": {
+          "anyOf": [
+            {
+              "maxLength": 512,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Reason"
+        }
+      },
+      "required": [
+        "webhook_id"
+      ],
+      "title": "EditWebhookInput",
+      "type": "object"
+    },
+    "risk_level": "MEDIUM",
+    "confirmation_policy": "NOT_REQUIRED"
+  },
+  {
+    "name": "execute_webhook",
+    "description": "Executes a guild webhook with content or an embed. This can impersonate a webhook identity and always requires confirmation.",
+    "parameters": {
+      "properties": {
+        "webhook_id": {
+          "title": "Webhook Id",
+          "type": "string"
+        },
+        "content": {
+          "anyOf": [
+            {
+              "maxLength": 2000,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Content"
+        },
+        "embed_title": {
+          "anyOf": [
+            {
+              "maxLength": 256,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Embed Title"
+        },
+        "embed_description": {
+          "anyOf": [
+            {
+              "maxLength": 4096,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Embed Description"
+        },
+        "username": {
+          "anyOf": [
+            {
+              "maxLength": 80,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Username"
+        },
+        "avatar_url": {
+          "anyOf": [
+            {
+              "maxLength": 512,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Avatar Url"
+        },
+        "wait": {
+          "default": true,
+          "title": "Wait",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "webhook_id"
+      ],
+      "title": "ExecuteWebhookInput",
+      "type": "object"
+    },
+    "risk_level": "HIGH",
+    "confirmation_policy": "REQUIRED"
+  },
+  {
+    "name": "list_webhooks",
+    "description": "Lists webhooks in the guild.",
+    "parameters": {
+      "properties": {},
+      "title": "ListWebhooksInput",
+      "type": "object"
+    },
+    "risk_level": "LOW",
+    "confirmation_policy": "NOT_REQUIRED"
+  },
+  {
+    "name": "delete_webhook",
+    "description": "Deletes a webhook by ID.",
+    "parameters": {
+      "properties": {
+        "webhook_id": {
+          "title": "Webhook Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "webhook_id"
+      ],
+      "title": "DeleteWebhookInput",
+      "type": "object"
+    },
+    "risk_level": "MEDIUM",
     "confirmation_policy": "NOT_REQUIRED"
   }
 ]

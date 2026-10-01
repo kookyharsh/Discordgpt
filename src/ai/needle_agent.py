@@ -58,6 +58,14 @@ _SYNTHETIC_SCHEMAS: list[dict[str, Any]] = [
     },
 ]
 
+PARSER_POLICY = (
+    "You parse one Discord management request. Choose a real action only when the user "
+    "clearly asks for that operation. For greetings, explanations, or vague text use "
+    "chat_reply. If a required target or detail is missing use ask_clarification. Never "
+    "infer destructive actions such as delete, ban, purge, prune, webhook execution, or "
+    "stage ending from weak wording. Never invent IDs or channel names."
+)
+
 
 def build_tool_schemas(allowed_actions: list[str] | None = None) -> list[dict[str, Any]]:
     """Raw JSON schemas for Needle: registry actions (filtered) + 2 synthetics."""
@@ -158,8 +166,8 @@ def _make_agent(tool_schemas: list[dict[str, Any]], system: str | None):
     import needle  # lazy: engine binary downloads on first Needle() use
 
     kwargs: dict[str, Any] = {"tools": tool_schemas}
-    if system:
-        kwargs["system"] = system
+    combined_system = PARSER_POLICY if not system else f"{PARSER_POLICY} {system}"
+    kwargs["system"] = combined_system
     if len(tool_schemas) > 5:
         kwargs["tool_index_path"] = resolve_index_path()
     return needle.Needle(**kwargs)
@@ -244,19 +252,9 @@ async def parse_with_needle(
             "confidence": confidence,
         }
 
-    # Confidence gate: below threshold -> ask user instead of executing.
-    if confidence is not None and confidence < CONFIDENCE_THRESHOLD:
-        first = calls[0]
-        return {
-            "status": "clarification_required",
-            "question": (
-                f"I'm not confident I understood ({confidence:.2f}). "
-                f"Did you mean '{first.get('name')}' with {first.get('arguments', {})}? "
-                "Please rephrase or confirm."
-            ),
-            "confidence": confidence,
-        }
-
+    # Handle Needle's synthetic tools before the confidence gate. Otherwise a
+    # low-confidence ask_clarification call gets displayed as a misleading
+    # guessed real action (for example, delete_channel).
     if len(calls) == 1 and calls[0].get("name") == "ask_clarification":
         args = calls[0].get("arguments", {}) or {}
         return {
@@ -269,6 +267,19 @@ async def parse_with_needle(
         return {
             "status": "chat",
             "message": str(args.get("message", "How can I help?"))[:1900],
+            "confidence": confidence,
+        }
+
+    # Confidence gate: below threshold -> ask for a rephrase without exposing
+    # or endorsing a potentially dangerous guessed action.
+    if confidence is not None and confidence < CONFIDENCE_THRESHOLD:
+        return {
+            "status": "clarification_required",
+            "question": (
+                "I couldn't confidently identify the Discord operation. "
+                "Please state the action and target explicitly, for example "
+                "'create a channel named support' or 'delete the channel #old-news'."
+            ),
             "confidence": confidence,
         }
     # Filter out any synthetic mixed into a multi-call (shouldn't happen).

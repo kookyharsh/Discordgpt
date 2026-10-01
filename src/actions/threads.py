@@ -10,7 +10,7 @@ from typing import Literal
 import discord
 from pydantic import BaseModel, Field
 
-from src.actions._helpers import resolve_guild_channel
+from src.actions._helpers import resolve_guild_channel, resolve_thread
 from src.actions.registry import ActionRegistry
 from src.actions.types import ActionDefinition, ConfirmationPolicy, RiskLevel
 
@@ -54,6 +54,69 @@ ActionRegistry.register(
         risk_level=RiskLevel.LOW,
         confirmation_policy=ConfirmationPolicy.NOT_REQUIRED,
         handler=create_thread_handler,
+    )
+)
+
+
+class ThreadStateInput(BaseModel):
+    thread_id: str
+
+
+async def join_thread_handler(ctx, data: ThreadStateInput):
+    thread = await resolve_thread(ctx.guild, data.thread_id)
+    await thread.join()
+    return {"thread_id": data.thread_id, "joined": True}
+
+
+async def leave_thread_handler(ctx, data: ThreadStateInput):
+    thread = await resolve_thread(ctx.guild, data.thread_id)
+    await thread.leave()
+    return {"thread_id": data.thread_id, "left": True}
+
+
+for _name, _handler, _description in (
+    ("join_thread", join_thread_handler, "Joins a thread as the bot."),
+    ("leave_thread", leave_thread_handler, "Leaves a thread as the bot."),
+):
+    ActionRegistry.register(
+        ActionDefinition(
+            type=_name,
+            description=_description,
+            input_schema=ThreadStateInput,
+            required_bot_permissions=discord.Permissions(send_messages=True),
+            required_user_permissions=discord.Permissions(send_messages=True),
+            risk_level=RiskLevel.LOW,
+            confirmation_policy=ConfirmationPolicy.NOT_REQUIRED,
+            handler=_handler,
+        )
+    )
+
+
+class ListArchivedThreadsInput(BaseModel):
+    channel_id: str
+    limit: int = Field(25, ge=1, le=100)
+
+
+async def list_archived_threads_handler(ctx, data: ListArchivedThreadsInput):
+    channel = await resolve_guild_channel(ctx.guild, data.channel_id)
+    if not hasattr(channel, "archived_threads"):
+        raise ValueError("Channel does not support archived thread listing.")
+    result = []
+    async for thread in channel.archived_threads(limit=data.limit):
+        result.append({"thread_id": str(thread.id), "name": thread.name, "archived": thread.archived})
+    return {"threads": result}
+
+
+ActionRegistry.register(
+    ActionDefinition(
+        type="list_archived_threads",
+        description="Lists archived threads under a text, announcement, forum, or media channel.",
+        input_schema=ListArchivedThreadsInput,
+        required_bot_permissions=discord.Permissions(read_message_history=True),
+        required_user_permissions=discord.Permissions(read_message_history=True),
+        risk_level=RiskLevel.LOW,
+        confirmation_policy=ConfirmationPolicy.NOT_REQUIRED,
+        handler=list_archived_threads_handler,
     )
 )
 

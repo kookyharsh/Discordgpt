@@ -61,6 +61,47 @@ ActionRegistry.register(
 )
 
 
+class EditScheduledEventInput(BaseModel):
+    event_id: str
+    name: str | None = Field(None, min_length=1, max_length=100)
+    description: str | None = Field(None, max_length=1000)
+    start_time: datetime | None = None
+    end_time: datetime | None = None
+    channel_id: str | None = None
+    reason: str | None = Field(None, max_length=512)
+
+
+async def edit_scheduled_event_handler(ctx, data: EditScheduledEventInput):
+    event = await ctx.guild.fetch_scheduled_event(int(data.event_id))
+    kwargs = {k: v for k, v in {"name": data.name, "description": data.description, "start_time": data.start_time, "end_time": data.end_time, "reason": data.reason}.items() if v is not None}
+    if data.channel_id:
+        kwargs["channel"] = await resolve_guild_channel(ctx.guild, data.channel_id)
+        kwargs["entity_type"] = discord.EntityType.voice
+    if not kwargs:
+        raise ValueError("Provide at least one scheduled-event field to update.")
+    await event.edit(**kwargs)
+    return {"event_id": data.event_id, "updated": True}
+
+
+ActionRegistry.register(ActionDefinition(type="edit_scheduled_event", description="Edits a scheduled event's name, description, time, or channel.", input_schema=EditScheduledEventInput, required_bot_permissions=discord.Permissions(manage_events=True), required_user_permissions=discord.Permissions(manage_events=True), risk_level=RiskLevel.MEDIUM, confirmation_policy=ConfirmationPolicy.NOT_REQUIRED, handler=edit_scheduled_event_handler))
+
+
+class ListScheduledEventUsersInput(BaseModel):
+    event_id: str
+    limit: int = Field(25, ge=1, le=100)
+
+
+async def list_scheduled_event_users_handler(ctx, data: ListScheduledEventUsersInput):
+    event = await ctx.guild.fetch_scheduled_event(int(data.event_id))
+    users = []
+    async for user in event.users(limit=data.limit):
+        users.append(user)
+    return {"event_id": data.event_id, "users": [{"user_id": str(u.id), "name": str(u)} for u in users]}
+
+
+ActionRegistry.register(ActionDefinition(type="list_scheduled_event_users", description="Lists users interested in a scheduled event.", input_schema=ListScheduledEventUsersInput, required_bot_permissions=discord.Permissions(manage_events=True), required_user_permissions=discord.Permissions(manage_events=True), risk_level=RiskLevel.LOW, confirmation_policy=ConfirmationPolicy.NOT_REQUIRED, handler=list_scheduled_event_users_handler))
+
+
 class ListScheduledEventsInput(BaseModel):
     pass
 

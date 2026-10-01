@@ -1,56 +1,29 @@
 # Discord Agent Tool Catalog
 
-Whitelisted Discord tools available through native Needle tool-calling and the deterministic execution dispatcher. Schemas: `tools/discord_tools.json` (generated via `export_tools_json`). Needle synthetics (`ask_clarification`, `chat_reply`) are planner-only and never dispatched.
+This catalog is generated from the live `ActionRegistry`. Needle receives the same schemas that `ActionDispatcher` validates. The generated JSON is at `tools/discord_tools.json`; run `refresh_artifacts()` after registry changes.
 
-## Core (original 23 + edit_channel)
+The bot currently exposes 102 whitelisted actions. Every action has a Pydantic schema, native `discord.py` handler, bot/user permissions, risk level, and confirmation policy.
 
-| Tool Name | Description | Arguments & Constraints | Permissions Required | Risk Level | Confirmation | discord.py Method |
-|---|---|---|---|---|---|---|
-| `create_channel` | Creates a new text, voice, category, or forum channel. | `name` (str, max 100), `type` (text/voice/category/forum), `category_id` (opt), `topic` (max 1024) | `manage_channels` | LOW | NOT_REQUIRED | `guild.create_text_channel()` / `create_voice_channel()` / `create_category()` / `create_forum()` |
-| `delete_channel` | Deletes a channel from the server. | `channel_id`, `reason` (opt) | `manage_channels` | HIGH | REQUIRED | `channel.delete()` |
-| `edit_channel` | Edits channel properties (name, topic, nsfw). | `channel_id`, `name`/`topic`/`nsfw` (opt) | `manage_channels` | MEDIUM | NOT_REQUIRED | `channel.edit()` |
-| `rename_channel` | Renames a channel. | `channel_id`, `new_name` (1-100) | `manage_channels` | LOW | NOT_REQUIRED | `channel.edit(name=)` |
-| `set_topic` | Sets a text channel topic (empty clears it). | `channel_id`, `topic` (max 1024, opt) | `manage_channels` | LOW | NOT_REQUIRED | `channel.edit(topic=)` |
-| `set_slowmode` | Sets slowmode delay in seconds (0 disables). | `channel_id`, `seconds` (0-21600) | `manage_channels` | LOW | NOT_REQUIRED | `channel.edit(slowmode_delay=)` |
-| `lock_channel` | Denies Send Messages for @everyone. | `channel_id`, `reason` (opt) | `manage_channels`+`manage_roles` | MEDIUM | NOT_REQUIRED | `channel.set_permissions()` |
-| `unlock_channel` | Resets @everyone Send Messages overwrite to neutral. | `channel_id`, `reason` (opt) | `manage_channels`+`manage_roles` | LOW | NOT_REQUIRED | `channel.set_permissions()` |
-| `create_role` | Creates a new role. | `name` (max 100), `color`, `hoist`, `mentionable` | `manage_roles` | MEDIUM | NOT_REQUIRED | `guild.create_role()` |
-| `assign_role` | Assigns a role to a member. | `member_id`, `role_id` | `manage_roles` | MEDIUM | NOT_REQUIRED | `member.add_roles()` |
-| `delete_role` | Deletes a role. | `role_id`, `reason` (opt) | `manage_roles` | HIGH | REQUIRED | `role.delete()` |
-| `remove_role` | Removes a role from a member. | `member_id`, `role_id` | `manage_roles` | MEDIUM | NOT_REQUIRED | `member.remove_roles()` |
-| `edit_role` | Edits role name/color/hoist/mentionable. | `role_id` + at least one field | `manage_roles` | LOW | NOT_REQUIRED | `role.edit()` |
-| `timeout_member` | Times out a member. | `member_id`, `duration_seconds` (1-2419200) | `moderate_members` | MEDIUM | REQUIRED | `member.timeout()` |
-| `untimeout_member` | Removes an active timeout. | `member_id` | `moderate_members` | LOW | NOT_REQUIRED | `member.timeout(None)` |
-| `kick_member` | Kicks a member (can rejoin). | `member_id`, `reason` (opt, 512) | `kick_members` | HIGH | REQUIRED | `member.kick()` |
-| `ban_member` | Bans a member. | `member_id`, `reason`, `delete_message_seconds` (0-604800) | `ban_members` | HIGH | REQUIRED | `guild.ban()` |
-| `unban_member` | Unbans a user by ID. | `user_id` | `ban_members` | MEDIUM | NOT_REQUIRED | `guild.unban()` |
-| `set_nickname` | Sets/clears a member nickname. | `member_id`, `nickname` (max 32, opt) | `manage_nicknames` | LOW | NOT_REQUIRED | `member.edit(nick=)` |
-| `move_member` | Moves/disconnects a voice member. | `member_id`, `channel_id` (opt) | `move_members` | LOW | NOT_REQUIRED | `member.move_to()` |
-| `send_message` | Sends a message to a text channel. | `channel_id`, `content` (1-2000) | `send_messages` | LOW | NOT_REQUIRED | `channel.send()` |
-| `edit_message` | Edits a bot-sent message. | `channel_id`, `message_id`, `content` | `send_messages` | LOW | NOT_REQUIRED | `message.edit()` |
-| `delete_message` | Deletes a single message. | `channel_id`, `message_id` | `manage_messages` | MEDIUM | NOT_REQUIRED | `message.delete()` |
-| `pin_message` | Pins a message. | `channel_id`, `message_id` | `manage_messages` | LOW | NOT_REQUIRED | `message.pin()` |
-| `unpin_message` | Unpins a message. | `channel_id`, `message_id` | `manage_messages` | LOW | NOT_REQUIRED | `message.unpin()` |
-| `purge_messages` | Bulk-deletes recent messages (max 100, skips pinned). | `channel_id`, `limit` (1-100), `user_id` (opt) | `manage_messages` | HIGH | REQUIRED | `channel.purge()` |
+## Capability groups
 
-## Advanced (v2 coverage)
+- Channels: text, announcement, voice, stage, category, forum, and media-capable channels; edit, move, lock, slowmode, topics, permission overwrites, and overwrite deletion.
+- Messages: content, embeds, replies, HTTPS attachments, stickers, polls, reactions, history, pinning, editing, deletion, purge, and announcement publishing.
+- Threads/forums: create, archive/unarchive, join/leave, member add/remove, active/archived listing, forum posts, and forum tag operations.
+- Members/roles: timeout, kick, ban/unban, nickname, voice mute/deafen/move, role assignment/removal/editing, permission bits, deletion, and reordering.
+- Guild administration: guild info/edit, bans, audit log, prune preview/execute, welcome screen, onboarding, widget, vanity lookup, integrations, and scheduled events/RSVPs.
+- Templates and bot self-management: list/create/sync/delete server templates and set bot presence/activity.
+- AutoMod: list, keyword/mention-spam/preset/member-profile creation, edit, and delete.
+- Expressions: emoji list/create/edit/delete and sticker list/create/delete.
+- Events and voice surfaces: stage lifecycle and soundboard sound management/effects. No voice playback or audio streaming is included.
+- Webhooks/invites: create/list/edit/delete webhooks, confirmed webhook execution, and invite lifecycle.
+- Schedules: DB-backed delayed and cron action execution.
 
-| Tool Name | Description | Arguments & Constraints | Permissions Required | Risk Level | Confirmation | discord.py Method |
-|---|---|---|---|---|---|---|
-| `create_thread` | Creates a thread, optionally on a message. | `channel_id`, `name` (1-100), `message_id` (opt), `auto_archive_minutes` (60-10080) | `send_messages`+`create_public_threads` | LOW | NOT_REQUIRED | `channel.create_thread()` / `message.create_thread()` |
-| `add_reaction` | Adds an emoji reaction. | `channel_id`, `message_id`, `emoji` | `add_reactions` | LOW | NOT_REQUIRED | `message.add_reaction()` |
-| `create_invite` | Creates a channel invite. | `channel_id`, `max_age` (0-604800), `max_uses` (0-100) | `create_instant_invite` | LOW | NOT_REQUIRED | `channel.create_invite()` |
-| `mute_member` | Server-mutes/unmutes in voice. | `member_id`, `muted` (bool) | `mute_members` | LOW | NOT_REQUIRED | `member.edit(mute=)` |
-| `deafen_member` | Server-deafens/undeafens in voice. | `member_id`, `deafened` (bool) | `deafen_members` | LOW | NOT_REQUIRED | `member.edit(deafen=)` |
+## Safety boundary
 
-## Schedules (delayed + cron, DB-backed)
+Natural language never calls Discord directly. Unknown actions, arbitrary code, generic HTTP paths, OAuth user-token flows, Activities/Social SDKs, developer-portal settings, gateway event triggers, guild deletion, and music playback are not registered tools.
 
-| Tool Name | Description | Arguments & Constraints | Permissions Required | Risk Level | Confirmation | Notes |
-|---|---|---|---|---|---|---|
-| `schedule_action` | Schedules an action once after a delay or on cron. | `action`, `parameters`, `delay_seconds` (5-2592000) XOR `cron` (crontab), `timezone` (IANA, default UTC) | inner action's perms re-checked now + at run | LOW | NOT_REQUIRED (dangerous actions blocked) | survives restarts via `ScheduledAction` table + APScheduler restore |
-| `list_schedules` | Lists active schedules for this server. | — | none | LOW | NOT_REQUIRED | cron shown in plain words |
-| `cancel_schedule` | Cancels a schedule by ID. | `schedule_id` | none | LOW | NOT_REQUIRED | disables row + removes live job |
+Destructive operations such as bans, channel/role/sticker/sound deletion, pruning, stage ending, webhook execution, and purges use high-risk confirmation where applicable. Tenant isolation, guild policy, Discord permissions, role hierarchy, and confirmation hashes are enforced by the dispatcher before handlers run.
 
-## Planned (not yet implemented)
+## Complete live action names
 
-Scheduled Discord-native events edits, sticker CRUD, `send_via_webhook`, `save_command`/`run_saved_command`, audit lookup tool, polls (native `discord.Poll`).
+`create_channel`, `delete_channel`, `edit_channel`, `rename_channel`, `set_topic`, `set_slowmode`, `lock_channel`, `unlock_channel`, `move_channel`, `set_channel_permissions`, `delete_channel_permission`, `create_role`, `assign_role`, `delete_role`, `remove_role`, `edit_role`, `reorder_role`, `timeout_member`, `untimeout_member`, `kick_member`, `ban_member`, `unban_member`, `set_nickname`, `move_member`, `mute_member`, `deafen_member`, `send_message`, `edit_message`, `delete_message`, `pin_message`, `unpin_message`, `purge_messages`, `fetch_history`, `add_reaction`, `remove_reaction`, `clear_reactions`, `create_poll`, `publish_message`, `create_thread`, `join_thread`, `leave_thread`, `archive_thread`, `list_active_threads`, `list_archived_threads`, `add_thread_member`, `remove_thread_member`, `create_forum_post`, `list_forum_tags`, `set_forum_tags`, `create_invite`, `list_invites`, `delete_invite`, `get_guild_info`, `edit_guild`, `list_bans`, `get_audit_log`, `prune_members`, `get_welcome_screen`, `edit_welcome_screen`, `get_onboarding`, `edit_onboarding`, `get_widget`, `edit_widget`, `get_vanity_url`, `list_integrations`, `create_scheduled_event`, `edit_scheduled_event`, `list_scheduled_events`, `list_scheduled_event_users`, `delete_scheduled_event`, `list_automod_rules`, `create_keyword_rule`, `create_automod_rule`, `edit_automod_rule`, `delete_automod_rule`, `create_webhook`, `edit_webhook`, `execute_webhook`, `list_webhooks`, `delete_webhook`, `list_emojis`, `create_emoji`, `edit_emoji`, `delete_emoji`, `list_stickers`, `create_sticker`, `delete_sticker`, `start_stage`, `edit_stage`, `end_stage`, `list_soundboard_sounds`, `create_soundboard_sound`, `delete_soundboard_sound`, `send_soundboard_sound`, `schedule_action`, `list_schedules`, `cancel_schedule`.

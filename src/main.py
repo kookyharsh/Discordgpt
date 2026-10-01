@@ -103,12 +103,14 @@ async def prompt_help_slash(interaction: discord.Interaction):
     from src.actions.registry import ActionRegistry
     from src.bot.ui import DiscordUIComponents
 
-    catalog = "\n".join(f"• **{a.type}** — {a.description}" for a in ActionRegistry.get_all())
+    names = "\n".join(f"• `{a.type}`" for a in ActionRegistry.get_all())
+    if len(names) > 3500:
+        names = names[:3500] + "\n…"
     await interaction.followup.send(
         embed=DiscordUIComponents.create_success_embed(
             "Natural Language Bot Help",
             "Describe what you want in `/prompt` - plain words work, @-mentions work best.\n\n"
-            f"**Actions I can do:**\n{catalog}\n\n**Tips:**\n"
+            f"**Actions I can do:**\n{names}\n\n**Tips:**\n"
             "• No channel named? I use the channel you're in.\n"
             "• Unsure? I'll ask a follow-up instead of guessing.\n"
             "• Dangerous actions ask for confirmation first.",
@@ -119,16 +121,22 @@ async def prompt_help_slash(interaction: discord.Interaction):
 
 async def main():
     # Side-effect imports: each category module registers its actions.
+    import src.actions.audit
     import src.actions.automod
+    import src.actions.botself
     import src.actions.channels
     import src.actions.emojis
     import src.actions.events
+    import src.actions.forum
     import src.actions.guild
     import src.actions.invites
     import src.actions.members
     import src.actions.messages
     import src.actions.roles
     import src.actions.schedules
+    import src.actions.soundboard
+    import src.actions.stage
+    import src.actions.stickers
     import src.actions.system
     import src.actions.threads
     import src.actions.webhooks  # noqa: F401

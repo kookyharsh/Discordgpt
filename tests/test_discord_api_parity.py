@@ -6,15 +6,21 @@ from unittest.mock import AsyncMock, MagicMock
 import discord
 import pytest
 
+import src.actions.audit
 import src.actions.automod
+import src.actions.botself
 import src.actions.channels
 import src.actions.emojis
 import src.actions.events
+import src.actions.forum
 import src.actions.guild
 import src.actions.invites
 import src.actions.members
 import src.actions.messages
 import src.actions.roles
+import src.actions.soundboard
+import src.actions.stage
+import src.actions.stickers
 import src.actions.system
 import src.actions.threads
 import src.actions.webhooks

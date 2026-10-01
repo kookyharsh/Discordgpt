@@ -41,6 +41,21 @@ CHANNEL_ACTIONS = {
     "unpin_message",
     "delete_channel",
     "edit_channel",
+    "create_poll",
+    "create_forum_post",
+    "create_thread",
+    "list_archived_threads",
+    "create_invite",
+    "create_webhook",
+    "publish_message",
+    "add_reaction",
+    "remove_reaction",
+    "fetch_history",
+    "clear_reactions",
+    "send_soundboard_sound",
+    "start_stage",
+    "edit_stage",
+    "end_stage",
 }
 
 
@@ -450,6 +465,7 @@ class BotInteractionHandler:
             guild=guild,
             actor_member=actor,
             settings=settings,
+            bot=self.bot,
         )
         res = await ActionDispatcher.dispatch(session, action_type, params, ctx)
 
@@ -522,6 +538,7 @@ class BotInteractionHandler:
             guild=guild,
             actor_member=actor,
             settings=settings,
+            bot=self.bot,
         )
         plan_res = await execute_action_plan(session, steps, 0, ctx)
         if not plan_res.get("completed") and plan_res.get("confirmation"):
@@ -674,6 +691,7 @@ class BotInteractionHandler:
             guild=guild,
             actor_member=actor,
             settings=settings,
+            bot=self.bot,
         )
         res = await ActionDispatcher.dispatch(session, "schedule_action", sched_params, ctx)
         if res.success:
@@ -840,6 +858,7 @@ class BotInteractionHandler:
                     guild=guild,
                     actor_member=actor,
                     settings=settings,
+                    bot=self.bot,
                 )
                 if plan.get("type") == PLAN_TYPE and isinstance(plan.get("steps"), list):
                     plan_res = await execute_action_plan(
